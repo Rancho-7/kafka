@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - 'trunk'
+      - 'CI-TEST'
   workflow_dispatch:
 
 run-name: Branch Build and Check for ${{ github.event.workflow_run.display_title}}
