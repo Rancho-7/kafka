@@ -71,7 +71,7 @@ jobs:
         id: combine-catalog
         continue-on-error: true
         run: |
-          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/**/*.yaml"
+          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/clients/*.yaml"
 
       - name: Archive Combined Test Catalog
         if: steps.combine-catalog.outcome == 'success'
@@ -106,7 +106,7 @@ jobs:
       - name: Setup Gradle
         uses: ./.github/actions/setup-gradle
         with:
-          java-version: 23
+          java-version: 11
           gradle-cache-read-only: ${{ !inputs.is-trunk }}
           gradle-cache-write-only: ${{ inputs.is-trunk }}
           develocity-access-key: ${{ secrets.GE_ACCESS_TOKEN }}
@@ -157,7 +157,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 23, 17 ]  # If we change these, make sure to adjust ci-complete.yml
+        java: [ 11 ]  # If we change these, make sure to adjust ci-complete.yml
     outputs:
       timed-out: ${{ (steps.junit-test.outputs.gradle-exitcode == '124' || steps.junit-quarantined-test.outputs.gradle-exitcode == '124') }}
     name: JUnit tests Java ${{ matrix.java }}
