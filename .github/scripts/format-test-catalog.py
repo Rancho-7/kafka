@@ -57,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument("--path",
                         required=False,
                         action='append',
-                        default=None,
+                        default=["test-catalog/**/*.yaml"],
                         help="Path to module YAML files. Glob patterns are supported.")
     parser.add_argument("--output-file",
                         required=False,
@@ -69,8 +69,8 @@ if __name__ == "__main__":
         exit(1)
 
     args = parser.parse_args()
-    if args.path is None:
-        args.path = ["test-catalog/**/*.yaml"]
+    # if args.path is None:
+    #     args.path = ["test-catalog/**/*.yaml"]
     # glob_paths = args.paths if args.paths else ["test-catalog/**/*.yaml"]
     logger.debug(f"Passed paths: {args.path}")
     yaml_to_all_tests(args.path, args.output_file)
