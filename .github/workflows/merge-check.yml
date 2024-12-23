@@ -63,7 +63,8 @@ jobs:
         run: |
           python .github/scripts/format-test-catalog.py \
             --path "test-catalog/test-catalog/clients/**/*.yaml" \
-            --path "test-catalog/test-catalog/streams/**/*.yaml"
+            --path "test-catalog/test-catalog/streams/**/*.yaml" \
+            --path "test-catalog/test-catalog/core/**/*.yaml"
 
       - name: Archive Combined Test Catalog
         if: steps.combine-catalog.outcome == 'success'
