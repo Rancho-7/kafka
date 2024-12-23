@@ -29,8 +29,11 @@ handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
-def yaml_to_all_tests(glob_path: str, out_file: str):
-    yamls = glob(pathname=glob_path, recursive=True)
+def yaml_to_all_tests(glob_paths: list, out_file: str):
+    yamls = []
+    for path in glob_paths:
+        yamls.extend(glob(pathname=path, recursive=True))
+    # yamls = glob(pathname=glob_path, recursive=True)
     logger.debug(f"Found {len(yamls)} YAML files")
     class_count = 0
     method_count = 0
@@ -52,7 +55,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--path",
                         required=False,
-                        default="test-catalog/**/*.yaml",
+                        action='append',
+                        default=["test-catalog/**/*.yaml"],
                         help="Path to module YAML files. Glob patterns are supported.")
     parser.add_argument("--output-file",
                         required=False,
