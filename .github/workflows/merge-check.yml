@@ -71,8 +71,7 @@ jobs:
         id: combine-catalog
         continue-on-error: true
         run: |
-          yaml_files=$(find test-catalog/test-catalog/clients test-catalog/test-catalog/streams -name "*.yaml")
-          python .github/scripts/format-test-catalog.py --path "$yaml_files" --output-file combined-test-catalog.txt
+          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/clients/*.yaml test-catalog/test-catalog/streams/*.yaml"
 
       - name: Archive Combined Test Catalog
         if: steps.combine-catalog.outcome == 'success'
