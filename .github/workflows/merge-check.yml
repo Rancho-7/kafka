@@ -150,7 +150,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 11 ]  # If we change these, make sure to adjust ci-complete.yml
+        java: [ 17 ]  # If we change these, make sure to adjust ci-complete.yml
     outputs:
       timed-out: ${{ (steps.junit-test.outputs.gradle-exitcode == '124' || steps.junit-quarantined-test.outputs.gradle-exitcode == '124') }}
     name: JUnit tests Java ${{ matrix.java }}
