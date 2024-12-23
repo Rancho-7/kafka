@@ -71,7 +71,9 @@ jobs:
         id: combine-catalog
         continue-on-error: true
         run: |
-          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/clients/*.yaml test-catalog/test-catalog/streams/*.yaml"
+          python .github/scripts/format-test-catalog.py \
+            --path "test-catalog/test-catalog/clients/*.yaml" \
+            --path "test-catalog/test-catalog/streams/*.yaml"
 
       - name: Archive Combined Test Catalog
         if: steps.combine-catalog.outcome == 'success'
@@ -84,19 +86,11 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     name: Compile and Check Java
-    outputs:
-      is-draft: ${{ steps.check-draft-pr.outputs.is-draft }}
     steps:
       - name: Env
         run: printenv
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
-      - name: Check for Draft PR
-        id: check-draft-pr
-        if: |
-          github.event_name == 'pull_request' && 
-          github.event.pull_request.draft
-        run: echo "is-draft=true" >> "$GITHUB_OUTPUT"
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -152,7 +146,6 @@ jobs:
 
   test:
     needs: [validate, load-catalog]
-    if: ${{ ! needs.validate.outputs.is-draft }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
