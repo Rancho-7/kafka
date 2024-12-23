@@ -69,4 +69,6 @@ if __name__ == "__main__":
         exit(1)
 
     args = parser.parse_args()
-    yaml_to_all_tests(args.path, args.output_file)
+    glob_paths = args.paths if args.paths else ["test-catalog/**/*.yaml"]
+    logger.debug(f"Passed paths: {glob_paths}")
+    yaml_to_all_tests(glob_paths, args.output_file)
