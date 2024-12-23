@@ -30,7 +30,7 @@ logger.addHandler(handler)
 
 
 def yaml_to_all_tests(glob_paths: list, out_file: str):
-    logger.debug("Received paths: {glob_paths}")
+    logger.debug(f"Received paths: {glob_paths}")
     yamls = []
     for path in glob_paths:
         yamls.extend(glob(pathname=path, recursive=True))
