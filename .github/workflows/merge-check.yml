@@ -61,10 +61,10 @@ jobs:
         id: combine-catalog
         continue-on-error: true
         run: |
-          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/**/*.yaml"
-#          python .github/scripts/format-test-catalog.py \
-#            --path "test-catalog/test-catalog/clients/**/*.yaml" \
-#            --path "test-catalog/test-catalog/streams/**/*.yaml" \
+#          python .github/scripts/format-test-catalog.py --path "test-catalog/test-catalog/**/*.yaml"
+          python .github/scripts/format-test-catalog.py \
+            --path "test-catalog/test-catalog/clients/**/*.yaml" \
+            --path "test-catalog/test-catalog/streams/**/*.yaml" \
 #            --path "test-catalog/test-catalog/core/**/*.yaml"
 
       - name: Archive Combined Test Catalog
