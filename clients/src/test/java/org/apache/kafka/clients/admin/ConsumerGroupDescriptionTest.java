@@ -14,31 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.kafka.clients.admin;
 
-import org.apache.kafka.common.annotation.InterfaceStability;
+import org.apache.kafka.common.ConsumerGroupState;
 
+import org.junit.jupiter.api.Test;
 
-/**
- * Options for {@link Admin#listConsumerGroupOffsets(java.util.Map)} and {@link Admin#listConsumerGroupOffsets(String)}.
- * <p>
- * The API of this class is evolving, see {@link Admin} for details.
- */
-@InterfaceStability.Evolving
-public class ListConsumerGroupOffsetsOptions extends AbstractOptions<ListConsumerGroupOffsetsOptions> {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    private boolean requireStable = false;
-
-    /**
-     * Sets an optional requireStable flag.
-     */
-    public ListConsumerGroupOffsetsOptions requireStable(final boolean requireStable) {
-        this.requireStable = requireStable;
-        return this;
-    }
-
-    public boolean requireStable() {
-        return requireStable;
+public class ConsumerGroupDescriptionTest {
+    @Test
+    public void testState() {
+        for (ConsumerGroupState consumerGroupState : ConsumerGroupState.values()) {
+            ConsumerGroupDescription description = new ConsumerGroupDescription(
+                "groupId",
+                false,
+                null,
+                "assignor",
+                consumerGroupState,
+                null
+            );
+            assertEquals(consumerGroupState, description.state());
+        }
     }
 }
