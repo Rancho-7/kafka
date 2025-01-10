@@ -132,7 +132,7 @@ ext {
       options.compilerArgs << "-Xlint:all"
       options.compilerArgs << "-Xlint:-serial"
       options.compilerArgs << "-Xlint:-try"
-//      options.compilerArgs << "-Werror"
+      options.compilerArgs << "-Werror"
     }
   }
 
