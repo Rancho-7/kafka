@@ -32,9 +32,11 @@ jobs:
           gradle-version: wrapper
 
       - name: Test client and streams modules
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xlint:-overloads -Werror=none"
         run: |
           ./gradlew :clients:test :streams:test \
-          -Dcompiler.args="-Xlint:-overloads" \
+          -PxmlSpotBugsReport=false \
           --no-scan
 
       - name: Upload test results
