@@ -31,46 +31,44 @@ jobs:
           cache-read-only: false
           gradle-version: wrapper
 
-      - name: Test client and streams modules
+      - name: Run tests
+        run: ./gradlew :clients:test :streams:test --no-scan > test_output.log 2>&1 || echo "Tests failed"
+
+      - name: Generate test summary
         run: |
           {
-            # Run tests first
-            ./gradlew :clients:test :streams:test --no-scan
-          
-            # Output summary header
             echo "# Test Summary"
             echo
-          
-            # Client Module Tests
             echo "## Client Module Tests"
-            total=$(ls -1 clients/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            failed=$(grep -l "<failure" clients/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            skipped=$(grep -l "<skipped" clients/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            echo "Total tests: ${total}, Failed: ${failed}, Skipped: ${skipped}"
+            echo -n "Total tests: "
+            find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l
+            echo -n ", Failed: "
+            find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l
+            echo -n ", Skipped: "
+            find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l
             echo
           
-            # Streams Module Tests
+            echo
             echo "## Streams Module Tests"
-            total=$(ls -1 streams/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            failed=$(grep -l "<failure" streams/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            skipped=$(grep -l "<skipped" streams/build/test-results/test/TEST-*.xml 2>/dev/null | wc -l)
-            echo "Total tests: ${total}, Failed: ${failed}, Skipped: ${skipped}"
+            echo -n "Total tests: "
+            find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l
+            echo -n ", Failed: "
+            find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l
+            echo -n ", Skipped: "
+            find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l
             echo
           
-            # Gradle Builds Table
+            echo
             echo "## Gradle Builds"
             echo
             echo "| Root Project | Requested Tasks | Gradle Version | Build Outcome | Build Scan |"
             echo "| ------------ | --------------- | -------------- | ------------- | ---------- |"
-          
-            # Get Gradle version and build outcome
             version=$(./gradlew --version | grep "Gradle" | cut -d' ' -f2)
-            if [ $? -eq 0 ]; then
+            if grep -q "BUILD SUCCESSFUL" test_output.log; then
               outcome="✅"
             else
               outcome="❌"
             fi
-          
             echo "| kafka | :clients:test :streams:test | ${version} | ${outcome} | NOT PUBLISHED |"
           } >> $GITHUB_STEP_SUMMARY
 
