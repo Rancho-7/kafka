@@ -1,0 +1,46 @@
+name: Client and Streams Tests
+
+on:
+  push:
+    branches:
+      - CI-TEST2
+
+jobs:
+  test-modules:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 11 ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          cache-read-only: false
+          gradle-version: wrapper
+
+      - name: Test client and streams modules
+        run: ./gradlew :clients:test :streams:test --no-scan
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-java${{ matrix.java }}
+          path: |
+            clients/build/reports/tests/
+            streams/build/reports/tests/
+          compression-level: 9
+          if-no-files-found: ignore
