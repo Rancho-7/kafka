@@ -41,18 +41,18 @@ jobs:
           
           # Extract test results using find and grep
           echo "## Client Module Tests" >> $GITHUB_STEP_SUMMARY
-          CLIENT_TOTAL=$(find clients/build/test-results/test -name "TEST-*.xml" -exec grep -l "<testcase" {} \; | xargs cat | grep -c "<testcase")
+          CLIENT_TOTAL=$(find clients/build/test-results/test -name "TEST-*.xml" -exec grep -l "<testcase" {} \; | xargs cat | grep -c "<testcase" || echo "0")
           CLIENT_FAILED=$(find clients/build/test-results/test -name "TEST-*.xml" -exec grep -l "<failure" {} \; | xargs cat 2>/dev/null | grep -c "<failure" || echo "0")
           CLIENT_SKIPPED=$(find clients/build/test-results/test -name "TEST-*.xml" -exec grep -l "<skipped" {} \; | xargs cat 2>/dev/null | grep -c "<skipped" || echo "0")
           echo "Total tests: $CLIENT_TOTAL, Failed: $CLIENT_FAILED, Skipped: $CLIENT_SKIPPED" >> $GITHUB_STEP_SUMMARY
           
           echo "## Streams Module Tests" >> $GITHUB_STEP_SUMMARY
-          STREAMS_TOTAL=$(find streams/build/test-results/test -name "TEST-*.xml" -exec grep -l "<testcase" {} \; | xargs cat | grep -c "<testcase")
+          STREAMS_TOTAL=$(find streams/build/test-results/test -name "TEST-*.xml" -exec grep -l "<testcase" {} \; | xargs cat | grep -c "<testcase" || echo "0")
           STREAMS_FAILED=$(find streams/build/test-results/test -name "TEST-*.xml" -exec grep -l "<failure" {} \; | xargs cat 2>/dev/null | grep -c "<failure" || echo "0")
           STREAMS_SKIPPED=$(find streams/build/test-results/test -name "TEST-*.xml" -exec grep -l "<skipped" {} \; | xargs cat 2>/dev/null | grep -c "<skipped" || echo "0")
-          echo "Total tests: $STREAMS_TOTAL, Failed: $STREAMS_FAILED, Skipped: $STREAMS_SKIPPED" >> $GITHUB_STEP_SUMMARY
+          echo -n "Total tests: $STREAMS_TOTAL, Failed: $STREAMS_FAILED, Skipped: $STREAMS_SKIPPED" >> $GITHUB_STEP_SUMMARY
           
-          echo "## Gradle Builds" >> $GITHUB_STEP_SUMMARY
+          echo $'\n\n## Gradle Builds' >> $GITHUB_STEP_SUMMARY
           echo "| Root Project | Requested Tasks | Gradle Version | Build Outcome | Build Scan |" >> $GITHUB_STEP_SUMMARY
           echo "| ------------ | --------------- | -------------- | ------------- | ---------- |" >> $GITHUB_STEP_SUMMARY
           
@@ -67,7 +67,7 @@ jobs:
           GRADLE_VERSION=$(./gradlew --version | grep "Gradle " | cut -d' ' -f2)
           echo "| kafka | :clients:test :streams:test | $GRADLE_VERSION | $OUTCOME | NOT PUBLISHED |" >> $GITHUB_STEP_SUMMARY
           
-          echo "### Caching for gradle-build-action was enabled - expand for details" >> $GITHUB_STEP_SUMMARY
+          echo $'\n### Caching for gradle-build-action was enabled - expand for details' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload test results
         if: always()
