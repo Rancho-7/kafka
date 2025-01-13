@@ -3,7 +3,7 @@ name: Client and Streams Tests
 on:
   push:
     branches:
-      - CI-TEST2
+      - trunk
 
 jobs:
   test-modules:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 11 ]
+        java: [ 17 ]
 
     steps:
       - name: Checkout code
@@ -32,7 +32,10 @@ jobs:
           gradle-version: wrapper
 
       - name: Test client and streams modules
-        run: ./gradlew :clients:test :streams:test --no-scan
+        run: |
+          ./gradlew :clients:test :streams:test \
+          -Dcompiler.args="-Xlint:-overloads" \
+          --no-scan
 
       - name: Upload test results
         if: always()
