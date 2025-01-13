@@ -42,9 +42,9 @@ jobs:
             echo "## Client Module Tests"
             echo -n "Total tests: "
             find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l
-            echo -n ", Failed: "
+            echo ", Failed: "
             find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l
-            echo -n ", Skipped: "
+            echo ", Skipped: "
             find clients/build/test-results/test -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l
             echo
           
@@ -52,9 +52,9 @@ jobs:
             echo "## Streams Module Tests"
             echo -n "Total tests: "
             find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l
-            echo -n ", Failed: "
+            echo ", Failed: "
             find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l
-            echo -n ", Skipped: "
+            echo ", Skipped: "
             find streams/build/test-results/test -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l
             echo
           
