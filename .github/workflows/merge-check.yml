@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17 ]
+        java: [ 11 ]
 
     steps:
       - name: Checkout code
@@ -44,3 +44,29 @@ jobs:
             streams/build/reports/tests/
           compression-level: 9
           if-no-files-found: ignore
+
+      - name: Parse test results
+        if: always()
+        run: |
+          echo "# Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Client Module Tests" >> $GITHUB_STEP_SUMMARY
+          if [ -f clients/build/test-results/test/TEST-*.xml ]; then
+            echo "### Results:" >> $GITHUB_STEP_SUMMARY
+            total=$(grep -c "<testcase" clients/build/test-results/test/TEST-*.xml || true)
+            failures=$(grep -c "<failure" clients/build/test-results/test/TEST-*.xml || true)
+            skipped=$(grep -c "<skipped" clients/build/test-results/test/TEST-*.xml || true)
+            echo "- Total tests: $total" >> $GITHUB_STEP_SUMMARY
+            echo "- Failures: $failures" >> $GITHUB_STEP_SUMMARY
+            echo "- Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "## Streams Module Tests" >> $GITHUB_STEP_SUMMARY
+          if [ -f streams/build/test-results/test/TEST-*.xml ]; then
+            echo "### Results:" >> $GITHUB_STEP_SUMMARY
+            total=$(grep -c "<testcase" streams/build/test-results/test/TEST-*.xml || true)
+            failures=$(grep -c "<failure" streams/build/test-results/test/TEST-*.xml || true)
+            skipped=$(grep -c "<skipped" streams/build/test-results/test/TEST-*.xml || true)
+            echo "- Total tests: $total" >> $GITHUB_STEP_SUMMARY
+            echo "- Failures: $failures" >> $GITHUB_STEP_SUMMARY
+            echo "- Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          fi
