@@ -3,7 +3,7 @@ name: Client and Streams Tests
 on:
   push:
     branches:
-      - trunk
+      - CI-TEST2
 
 jobs:
   test-modules:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17 ]
+        java: [ 11 ]
 
     steps:
       - name: Checkout code
