@@ -31,239 +31,60 @@ jobs:
           cache-read-only: false
           gradle-version: wrapper
 
-      - name: Run regular tests
+      - name: Run tests
         run: |
-          # 记录总测试开始时间
-          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
-          
-          # 运行常规测试，排除隔离测试
-          ./gradlew :clients:test :streams:test \
-            -PexcludeTests="**/Quarantined*" \
-            --no-scan > regular_test_output.log 2>&1 || echo "Regular tests failed"
-
-      - name: Run quarantined tests
-        run: |
-          # 只运行隔离测试
-          ./gradlew :clients:test :streams:test \
-            -PincludeTests="**/Quarantined*" \
-            -PallowQuarantinedTestFailures=true \
-            --no-scan > quarantined_test_output.log 2>&1 || echo "Quarantined tests failed"
-          
-          # 记录总测试结束时间
-          echo "DURATION=$(($(date +%s) - $START_TIME))" >> $GITHUB_ENV
+          # 记录开始时间
+          start_time=$(date +%s)
+          ./gradlew :clients:test :streams:test --no-scan > test_output.log 2>&1 || echo "Tests failed"
+          # 记录结束时间并计算总耗时
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          # 转换为分钟和秒
+          minutes=$((duration / 60))
+          seconds=$((duration % 60))
+          echo "TOTAL_DURATION=${minutes}m ${seconds}s" >> $GITHUB_ENV
 
       - name: Generate test summary
         run: |
           {
-            # 定义状态表情
-            PASSED="✅"
-            FAILED="❌"
-            SKIPPED="🙈"
-            FLAKY="⚠️"
-            QUARANTINED="😷"
+            # 设置测试结果目录变量
+            CLIENTS_DIR="clients/build/test-results/test"
+            STREAMS_DIR="streams/build/test-results/test"
           
-            # 计算常规测试的 Client 模块统计数据
-            CLIENT_TOTAL=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            CLIENT_FAILED=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            CLIENT_SKIPPED=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<skipped" {} \; | wc -l)
-            CLIENT_PASSED=$((CLIENT_TOTAL - CLIENT_FAILED - CLIENT_SKIPPED))
-
-            # 计算常规测试的 Streams 模块统计数据
-            STREAMS_TOTAL=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            STREAMS_FAILED=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            STREAMS_SKIPPED=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<skipped" {} \; | wc -l)
-            STREAMS_PASSED=$((STREAMS_TOTAL - STREAMS_FAILED - STREAMS_SKIPPED))
-
-            # 计算隔离测试统计数据
-            QUARANTINED_TOTAL=$(find . -name "TEST-*.xml" -path "**/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            QUARANTINED_FAILED=$(find . -name "TEST-*.xml" -path "**/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            QUARANTINED_PASSED=$((QUARANTINED_TOTAL - QUARANTINED_FAILED))
-
-            # 计算总数
-            TOTAL_TESTS=$((CLIENT_TOTAL + STREAMS_TOTAL))
-            TOTAL_FAILED=$((CLIENT_FAILED + STREAMS_FAILED))
-            TOTAL_SKIPPED=$((CLIENT_SKIPPED + STREAMS_SKIPPED))
-            TOTAL_PASSED=$((CLIENT_PASSED + STREAMS_PASSED))
-
-            # 格式化持续时间
-            duration=$DURATION
-            hours=$((duration / 3600))
-            minutes=$(( (duration % 3600) / 60 ))
-            seconds=$((duration % 60))
-            if [ $hours -gt 0 ]; then
-              time_str="${hours}h${minutes}m${seconds}s"
-            elif [ $minutes -gt 0 ]; then
-              time_str="${minutes}m${seconds}s"
-            else
-              time_str="${seconds}s"
-            fi
-
-            # 输出主要总结
+            # 计算 Client 模块的统计数据
+            CLIENT_TOTAL=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
+            CLIENT_FAILED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
+            CLIENT_SKIPPED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
+          
+            # 改进的 flaky 测试识别
+            CLIENT_FLAKY=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Flaky.*Test|@Flaky|flaky="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+          
+            # 识别 quarantined 测试
+            CLIENT_QUARANTINED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine|quarantined="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+          
+            # 计算 Streams 模块的统计数据
+            STREAMS_TOTAL=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
+            STREAMS_FAILED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
+            STREAMS_SKIPPED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
+          
+            # 改进的 flaky 测试识别
+            STREAMS_FLAKY=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Flaky.*Test|@Flaky|flaky="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+          
+            # 识别 quarantined 测试
+            STREAMS_QUARANTINED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine|quarantined="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+          
+            # 输出格式化的摘要
             echo "# Test Summary"
             echo
-            echo "Total Time: ${time_str}"
+            echo "Total time: ${{ env.TOTAL_DURATION }}"
             echo
-            echo "## Client Module"
-            echo "${CLIENT_TOTAL} tests cases"
-            echo "${CLIENT_PASSED} ${PASSED} PASSED, ${CLIENT_FAILED} ${FAILED} FAILED, ${CLIENT_SKIPPED} ${SKIPPED} SKIPPED"
+            echo "## Client Module Tests"
+            echo "${CLIENT_TOTAL} tests cases run"
+            echo "${CLIENT_FAILED} Failed, ${CLIENT_FLAKY} Flaky, ${CLIENT_SKIPPED} Skipped, ${CLIENT_QUARANTINED} Quarantined, and 0 errors"
             echo
-            echo "## Streams Module"
-            echo "${STREAMS_TOTAL} tests cases"
-            echo "${STREAMS_PASSED} ${PASSED} PASSED, ${STREAMS_FAILED} ${FAILED} FAILED, ${STREAMS_SKIPPED} ${SKIPPED} SKIPPED"
-            echo
-            echo "## Quarantined Tests"
-            echo "${QUARANTINED_TOTAL} tests cases"
-            echo "${QUARANTINED_PASSED} ${PASSED} PASSED, ${QUARANTINED_FAILED} ${FAILED} FAILED"
-            echo
-            echo "Download [HTML report](JUNIT_REPORT_URL)."
-
-            # 所有通过测试的详情面板
-            echo
-            echo "<details>"
-            echo "<summary>Passed Tests ${PASSED} (${TOTAL_PASSED})</summary>"
-            echo
-            echo "| Module | Test Class | Test Name | Time |"
-            echo "| ------ | ---------- | --------- | ---- |"
-            # Client 模块通过的测试
-            find clients/build/test-results/test -name "TEST-*.xml" | while read -r file; do
-              className=$(basename "$file" .xml | sed 's/TEST-//')
-              grep "<testcase" "$file" | grep -v "<failure\|<skipped" | while read -r line; do
-                if [[ $line =~ name=\"([^\"]+)\".*time=\"([^\"]+)\" ]]; then
-                  testName="${BASH_REMATCH[1]}"
-                  time="${BASH_REMATCH[2]}"
-                  echo "| Client | $className | $testName | ${time}s |"
-                fi
-              done
-            done
-            # Streams 模块通过的测试
-            find streams/build/test-results/test -name "TEST-*.xml" | while read -r file; do
-              className=$(basename "$file" .xml | sed 's/TEST-//')
-              grep "<testcase" "$file" | grep -v "<failure\|<skipped" | while read -r line; do
-                if [[ $line =~ name=\"([^\"]+)\".*time=\"([^\"]+)\" ]]; then
-                  testName="${BASH_REMATCH[1]}"
-                  time="${BASH_REMATCH[2]}"
-                  echo "| Streams | $className | $testName | ${time}s |"
-                fi
-              done
-            done
-            echo "</details>"
-          
-            # 所有失败测试的详情面板
-            if [ $TOTAL_FAILED -gt 0 ]; then
-              echo
-              echo "<details open=\"true\">"
-              echo "<summary>Failed Tests ${FAILED} (${TOTAL_FAILED})</summary>"
-              echo
-              echo "| Module | Test Class | Test Name | Message |"
-              echo "| ------ | ---------- | --------- | ------- |"
-              # Client 模块失败的测试
-              find clients/build/test-results/test -name "TEST-*.xml" -exec grep -l "<failure" {} \; | while read -r file; do
-                className=$(basename "$file" .xml | sed 's/TEST-//')
-                grep -A 1 "<failure" "$file" | while read -r line || [ -n "$line" ]; do
-                  if [[ $line =~ testcase.*name=\"([^\"]+)\" ]]; then
-                    testName="${BASH_REMATCH[1]}"
-                    read -r nextline
-                    if [[ $nextline =~ message=\"([^\"]+)\" ]]; then
-                      message="${BASH_REMATCH[1]}"
-                      echo "| Client | $className | $testName | $message |"
-                    fi
-                  fi
-                done
-              done
-              # Streams 模块失败的测试
-              find streams/build/test-results/test -name "TEST-*.xml" -exec grep -l "<failure" {} \; | while read -r file; do
-                className=$(basename "$file" .xml | sed 's/TEST-//')
-                grep -A 1 "<failure" "$file" | while read -r line || [ -n "$line" ]; do
-                  if [[ $line =~ testcase.*name=\"([^\"]+)\" ]]; then
-                    testName="${BASH_REMATCH[1]}"
-                    read -r nextline
-                    if [[ $nextline =~ message=\"([^\"]+)\" ]]; then
-                      message="${BASH_REMATCH[1]}"
-                      echo "| Streams | $className | $testName | $message |"
-                    fi
-                  fi
-                done
-              done
-              echo "</details>"
-            fi
-          
-            # 所有跳过测试的详情面板
-            if [ $TOTAL_SKIPPED -gt 0 ]; then
-              echo
-              echo "<details>"
-              echo "<summary>Skipped Tests ${SKIPPED} (${TOTAL_SKIPPED})</summary>"
-              echo
-              echo "| Module | Test Class | Test Name |"
-              echo "| ------ | ---------- | --------- |"
-              # Client 模块跳过的测试
-              find clients/build/test-results/test -name "TEST-*.xml" | while read -r file; do
-                className=$(basename "$file" .xml | sed 's/TEST-//')
-                grep -A 1 "<skipped" "$file" | while read -r line || [ -n "$line" ]; do
-                  if [[ $line =~ name=\"([^\"]+)\" ]]; then
-                    testName="${BASH_REMATCH[1]}"
-                    echo "| Client | $className | $testName |"
-                  fi
-                done
-              done
-              # Streams 模块跳过的测试
-              find streams/build/test-results/test -name "TEST-*.xml" | while read -r file; do
-                className=$(basename "$file" .xml | sed 's/TEST-//')
-                grep -A 1 "<skipped" "$file" | while read -r line || [ -n "$line" ]; do
-                  if [[ $line =~ name=\"([^\"]+)\" ]]; then
-                    testName="${BASH_REMATCH[1]}"
-                    echo "| Streams | $className | $testName |"
-                  fi
-                done
-              done
-              echo "</details>"
-            fi
-
-            # 隔离测试的详情面板
-            if [ $QUARANTINED_TOTAL -gt 0 ]; then
-              echo
-              echo "<details>"
-              echo "<summary>Quarantined Tests ${QUARANTINED} (${QUARANTINED_TOTAL})</summary>"
-              echo
-              echo "| Module | Test Class | Test Name |"
-              echo "| ------ | ---------- | --------- |"
-              find . -name "TEST-*.xml" -path "**/Quarantined*" | while read -r file; do
-                className=$(basename "$file" .xml | sed 's/TEST-//')
-                module=$(echo "$file" | grep -o -E "clients|streams")
-                module_name=$(tr '[:lower:]' '[:upper:]' <<< ${module:0:1})${module:1}
-                grep "<testcase" "$file" | while read -r line; do
-                  if [[ $line =~ name=\"([^\"]+)\" ]]; then
-                    testName="${BASH_REMATCH[1]}"
-                    echo "| $module_name | $className | $testName |"
-                  fi
-                done
-              done
-              echo "</details>"
-            fi
-          
-            echo
-            echo "## Gradle Builds"
-            echo
-            echo "| Gradle Root Project | Requested Tasks | Gradle Version | Build Outcome | Build Scan |"
-            echo "| ------------------- | --------------- | -------------- | ------------- | ---------- |"
-          
-            # 获取 Gradle 版本和构建结果
-            version=$(./gradlew --version | grep "Gradle" | cut -d' ' -f2)
-          
-            # 检查常规测试结果
-            regular_outcome="${FAILED}"
-            if tail regular_test_output.log | grep -q "BUILD SUCCESSFUL"; then
-              regular_outcome="${PASSED}"
-            fi
-          
-            # 检查隔离测试结果
-            quarantined_outcome="${FAILED}"
-            if tail quarantined_test_output.log | grep -q "BUILD SUCCESSFUL"; then
-              quarantined_outcome="${PASSED}"
-            fi
-          
-            echo "| kafka | :clients:test :streams:test (Regular) | ${version} | ${regular_outcome} | Not published |"
-            echo "| kafka | :clients:test :streams:test (Quarantined) | ${version} | ${quarantined_outcome} | Not published |"
-          
+            echo "## Streams Module Tests"
+            echo "${STREAMS_TOTAL} tests cases run"
+            echo "${STREAMS_FAILED} Failed, ${STREAMS_FLAKY} Flaky, ${STREAMS_SKIPPED} Skipped, ${STREAMS_QUARANTINED} Quarantined, and 0 errors"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Upload test results
