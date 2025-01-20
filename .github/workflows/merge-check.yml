@@ -35,7 +35,7 @@ jobs:
         run: |
           # 记录开始时间
           start_time=$(date +%s)
-          ./gradlew :clients:test :streams:test --no-scan > test_output.log 2>&1 || echo "Tests failed"
+          ./gradlw :clients:test :streams:test --no-scan > test_output.log 2>&1 || echo "Tests failed"
           # 记录结束时间并计算总耗时
           end_time=$(date +%s)
           duration=$((end_time - start_time))
@@ -47,44 +47,18 @@ jobs:
       - name: Generate test summary
         run: |
           {
-            # 设置测试结果目录变量
-            CLIENTS_DIR="clients/build/test-results/test"
-            STREAMS_DIR="streams/build/test-results/test"
-          
-            # 计算 Client 模块的统计数据
-            CLIENT_TOTAL=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
-            CLIENT_FAILED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
-            CLIENT_SKIPPED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
-          
-            # 改进的 flaky 测试识别
-            CLIENT_FLAKY=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Flaky.*Test|@Flaky|flaky="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
-          
-            # 识别 quarantined 测试
-            CLIENT_QUARANTINED=$(find ${CLIENTS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine|quarantined="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
-          
-            # 计算 Streams 模块的统计数据
-            STREAMS_TOTAL=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
-            STREAMS_FAILED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
-            STREAMS_SKIPPED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
-          
-            # 改进的 flaky 测试识别
-            STREAMS_FLAKY=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Flaky.*Test|@Flaky|flaky="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
-          
-            # 识别 quarantined 测试
-            STREAMS_QUARANTINED=$(find ${STREAMS_DIR} -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine|quarantined="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
-          
+            # 直接计算所有测试的统计数据
+            TOTAL_TESTS=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
+            TOTAL_FAILED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
+            TOTAL_SKIPPED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
+            TOTAL_FLAKY=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Flaky.*Test|@Flaky|flaky="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+            TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine|quarantined="true"' {} \; | xargs -r grep "<testcase" 2>/dev/null | wc -l)
+
             # 输出格式化的摘要
             echo "# Test Summary"
             echo
-            echo "Total time: ${{ env.TOTAL_DURATION }}"
-            echo
-            echo "## Client Module Tests"
-            echo "${CLIENT_TOTAL} tests cases run"
-            echo "${CLIENT_FAILED} Failed, ${CLIENT_FLAKY} Flaky, ${CLIENT_SKIPPED} Skipped, ${CLIENT_QUARANTINED} Quarantined, and 0 errors"
-            echo
-            echo "## Streams Module Tests"
-            echo "${STREAMS_TOTAL} tests cases run"
-            echo "${STREAMS_FAILED} Failed, ${STREAMS_FLAKY} Flaky, ${STREAMS_SKIPPED} Skipped, ${STREAMS_QUARANTINED} Quarantined, and 0 errors"
+            echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}"
+            echo "${TOTAL_FAILED} Failed, ${TOTAL_FLAKY} Flaky, ${TOTAL_SKIPPED} Skipped, ${TOTAL_QUARANTINED} Quarantined, and 0 errors"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Upload test results
