@@ -52,7 +52,6 @@ jobs:
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           
-          # 转换为时分秒格式
           hours=$((duration / 3600))
           minutes=$(( (duration % 3600) / 60 ))
           seconds=$((duration % 60))
@@ -69,20 +68,25 @@ jobs:
         if: always()
         run: |
           {
-            # 收集测试结果
-            TOTAL_TESTS=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
+            # 查找所有测试XML文件并进行一次性统计
+            TEST_DIR="./*/build/test-results/test"
+            if [ -d "$TEST_DIR" ]; then
+              # 统计各类测试数量
+              TOTAL_TESTS=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase)" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
+              TOTAL_FAILED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[.//failure])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
+              TOTAL_SKIPPED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[.//skipped])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
+              TOTAL_FLAKY=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[contains(@name,'Flaky') or contains(@name,'flaky')])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
+              TOTAL_QUARANTINED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[contains(@classname,'Quarantined') or contains(@name,'Quarantine')])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
+
+              # 计算通过的测试数
+              TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
           
-            # 统计通过的测试数（总数减去失败、跳过和隔离的）
-            TOTAL_FAILED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
-            TOTAL_SKIPPED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
-            TOTAL_FLAKY=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l "@Flaky" {} \; | wc -l)
-            TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine"' {} \; | wc -l)
-          
-            TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
-          
-            # 输出格式化的摘要
-            echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
-            echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
+              # 输出格式化的摘要
+              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
+              echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
+            else
+              echo "No test results found in $TEST_DIR"
+            fi
           } >> $GITHUB_STEP_SUMMARY
           
           # 同时输出到控制台
