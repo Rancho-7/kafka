@@ -39,14 +39,14 @@ jobs:
           
           # 运行测试
           ./gradlew test \
-          --no-daemon \
-          --build-cache \
-          --continue \
-          -PtestLoggingEvents=started,passed,skipped,failed \
-          -PmaxParallelForks=2 \
-          -PmaxTestRetries=1 \
-          -PmaxTestRetryFailures=3 \
-          || echo "::warning::Some tests failed"
+            --no-daemon \
+            --build-cache \
+            --continue \
+            -PtestLoggingEvents=started,passed,skipped,failed \
+            -PmaxParallelForks=2 \
+            -PmaxTestRetries=1 \
+            -PmaxTestRetryFailures=3 \
+            || echo "::warning::Some tests failed"
           
           # 计算持续时间并格式化
           end_time=$(date +%s)
@@ -58,43 +58,43 @@ jobs:
           seconds=$((duration % 60))
           
           if [ $hours -gt 0 ]; then
-          duration_str="${hours}h${minutes}m${seconds}s"
+            duration_str="${hours}h${minutes}m${seconds}s"
           else
-          duration_str="${minutes}m${seconds}s"
+            duration_str="${minutes}m${seconds}s"
           fi
           
           echo "TOTAL_DURATION=$duration_str" >> $GITHUB_ENV
 
-          - name: Generate Test Summary
-            if: always()
-            run: |
-              {
-                # 收集测试结果
-                TOTAL_TESTS=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
-              
-                # 统计通过的测试数（总数减去失败、跳过和隔离的）
-                TOTAL_FAILED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
-                TOTAL_SKIPPED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
-                TOTAL_FLAKY=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l "@Flaky" {} \; | wc -l)
-                TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine"' {} \; | wc -l)
-              
-                TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
-              
-                # 输出格式化的摘要
-                echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
-                echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
-              } >> $GITHUB_STEP_SUMMARY
-              
-              # 同时输出到控制台
-              cat $GITHUB_STEP_SUMMARY
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          {
+            # 收集测试结果
+            TOTAL_TESTS=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<testcase" {} \; | wc -l)
+          
+            # 统计通过的测试数（总数减去失败、跳过和隔离的）
+            TOTAL_FAILED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<failure" {} \; | wc -l)
+            TOTAL_SKIPPED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep "<skipped" {} \; | wc -l)
+            TOTAL_FLAKY=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l "@Flaky" {} \; | wc -l)
+            TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test" -name "TEST-*.xml" -exec grep -l -E 'class=".*\.Quarantined.*Test|@Quarantine"' {} \; | wc -l)
+          
+            TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
+          
+            # 输出格式化的摘要
+            echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
+            echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
+          } >> $GITHUB_STEP_SUMMARY
+          
+          # 同时输出到控制台
+          cat $GITHUB_STEP_SUMMARY
 
-          - name: Upload Test Results
-            if: always()
-            uses: actions/upload-artifact@v4
-            with:
-              name: test-results-java${{ matrix.java }}
-              path: |
-                **/build/reports/tests/
-                **/build/test-results/
-              compression-level: 9
-              if-no-files-found: ignore
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-java${{ matrix.java }}
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          compression-level: 9
+          if-no-files-found: ignore
