@@ -69,15 +69,17 @@ jobs:
         run: |
           {
             # 查找所有测试XML文件并进行一次性统计
-            TEST_DIR="./*/build/test-results/test"
-            if [ -d "$TEST_DIR" ]; then
+            if find . -path "*/build/test-results/test" -type d | grep -q .; then
               # 统计各类测试数量
-              TOTAL_TESTS=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase)" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
-              TOTAL_FAILED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[.//failure])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
-              TOTAL_SKIPPED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[.//skipped])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
-              TOTAL_FLAKY=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[contains(@name,'Flaky') or contains(@name,'flaky')])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
-              TOTAL_QUARANTINED=$(find $TEST_DIR -name "TEST-*.xml" -exec xmllint --xpath "count(//testcase[contains(@classname,'Quarantined') or contains(@name,'Quarantine')])" {} \; 2>/dev/null | awk '{sum += $1} END {print sum}')
-
+              TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_FLAKY=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "@Flaky" {} \; | wc -l)
+              TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "Quarantined" {} \; | wc -l)
+          
+              # Debug 输出
+              echo "Debug: Found $(find . -path "*/build/test-results/test/TEST-*.xml" -type f | wc -l) test result files"
+          
               # 计算通过的测试数
               TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
           
@@ -85,7 +87,8 @@ jobs:
               echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
               echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
             else
-              echo "No test results found in $TEST_DIR"
+              echo "No test results found. Current directory structure:"
+              find . -name "TEST-*.xml" -type f
             fi
           } >> $GITHUB_STEP_SUMMARY
           
