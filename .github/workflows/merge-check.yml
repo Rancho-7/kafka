@@ -77,15 +77,11 @@ jobs:
               TOTAL_FLAKY=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "@Flaky" {} \; | wc -l)
               TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "Quarantined" {} \; | wc -l)
           
-#               Debug 输出
-#              echo "Debug: Found $(find . -path "*/build/test-results/test/TEST-*.xml" -type f | wc -l) test result files"
-          
               # 计算通过的测试数
               TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
           
               # 输出格式化的摘要
-              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
-              echo
+              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}.\n"
               echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and 0 errors."
             else
               echo "No test results found. Current directory structure:"
