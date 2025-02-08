@@ -37,7 +37,6 @@ jobs:
           # 记录开始时间
           start_time=$(date +%s)
           
-          # 运行测试
           ./gradlew :clients:test :streams:test \
             --no-daemon \
             --build-cache \
@@ -45,8 +44,7 @@ jobs:
             -PtestLoggingEvents=started,passed,skipped,failed \
             -PmaxParallelForks=2 \
             -PmaxTestRetries=1 \
-            -PmaxTestRetryFailures=3 \
-            || echo "::warning::Some tests failed"
+            -PmaxTestRetryFailures=3
           
           # 计算持续时间并格式化
           end_time=$(date +%s)
@@ -70,6 +68,8 @@ jobs:
           {
             # 查找所有测试XML文件并进行一次性统计
             if find . -path "*/build/test-results/test" -type d | grep -q .; then
+              # Improve quarantined test detection
+              TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.annotation.Quarantined\|@Quarantined" {} \; | wc -l)
               # 统计各类测试数量
               TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
               TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
@@ -93,6 +93,17 @@ jobs:
           
           # 同时输出到控制台
           cat $GITHUB_STEP_SUMMARY
+
+      - name: Report Failed Tests
+        if: always()  # Make sure this runs even if tests fail
+        run: |
+          echo "Failed Tests:"
+          find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
+          while read file; do
+            classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
+            testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
+            echo "- $classname :: $testname"
+          done
 
       - name: Upload Test Results
         if: always()
