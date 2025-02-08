@@ -67,101 +67,100 @@ jobs:
             echo "Tests failed"
             exit 1
           fi
-
       - name: Generate Test Summary
         if: always()
         run: |
-            {
-              if find . -path "*/build/test-results/test" -type d | grep -q .; then
-            
-                TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
-            
-                # Basic test counts
-                TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
-                TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
-                TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
-                TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
-            
-                # Calculate passed tests
-                TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
-            
-                # Export variables to GITHUB_ENV to share between steps
-                echo "TOTAL_TESTS=${TOTAL_TESTS}" >> $GITHUB_ENV
-                echo "TOTAL_PASSED=${TOTAL_PASSED}" >> $GITHUB_ENV
-                echo "TOTAL_FAILED=${TOTAL_FAILED}" >> $GITHUB_ENV
-                echo "TOTAL_SKIPPED=${TOTAL_SKIPPED}" >> $GITHUB_ENV
-                echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
-                echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
-            
-              else
-                echo "No test results found."
-              fi
-            } >> $GITHUB_STEP_SUMMARY
-
+          {
+            if find . -path "*/build/test-results/test" -type d | grep -q .; then
+          
+              TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
+          
+              # Basic test counts
+              TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
+          
+              # Calculate passed tests
+              TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
+          
+              # Export variables to GITHUB_ENV to share between steps
+              echo "TOTAL_TESTS=${TOTAL_TESTS}" >> $GITHUB_ENV
+              echo "TOTAL_PASSED=${TOTAL_PASSED}" >> $GITHUB_ENV
+              echo "TOTAL_FAILED=${TOTAL_FAILED}" >> $GITHUB_ENV
+              echo "TOTAL_SKIPPED=${TOTAL_SKIPPED}" >> $GITHUB_ENV
+              echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
+              echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
+          
+            else
+              echo "No test results found."
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+      - name: List Quarantined Tests
+        if: always()
+        run: |
+          echo "Quarantined Tests:" >> $GITHUB_STEP_SUMMARY
+          {
+            find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;
+            find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.Quarantined" {} \;
+          } >> $GITHUB_STEP_SUMMARY || true
       - name: Report Failed Tests
         if: always()
         run: |
-            {
-              echo "# Test Summary"
+          {
+            echo "# Test Summary"
+            echo
+            echo "## Test Results"
+            echo
+            # Use variables from GITHUB_ENV
+            echo "${{ env.TOTAL_TESTS }} tests cases run in ${{ env.TOTAL_DURATION }}."
+            echo
+            echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
+            echo
+          
+            # Start Failed Tests Section if there are failures
+            if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
+              echo "<details open=\"true\">"
+              echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
               echo
-              echo "## Test Results"
-              echo
-              # Use variables from GITHUB_ENV
-              echo "${{ env.TOTAL_TESTS }} tests cases run in ${{ env.TOTAL_DURATION }}."
-              echo
-              echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
-              echo
-            
-              # Start Failed Tests Section if there are failures
-              if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
-                echo "<details open=\"true\">"
-                echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
-                echo
-                echo "| Module | Test | Message | Time |"
-                echo "| ------ | ---- | ------- | ---- |"
-            
-                while IFS= read -r file; do
-                  while IFS= read -r testcase; do
-                    if echo "$testcase" | grep -q "<failure"; then
-                      # Get full class name and test name
-                      classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                      testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                      message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-                      time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-            
-                      # Get simple class name for Module column
-                      simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
-            
-                      # Clean up test name - remove parameter information if present
-                      clean_testname=$(echo "$testname" | sed 's/\(.*\)(.*)/\1/')
-            
-                      # Escape any pipe characters in the message
-                      message=$(echo "$message" | sed 's/|/\\|/g')
-            
-                      # Output with proper Module and Test columns
-                      echo "| $simple_classname | $clean_testname | $message | ${time}s |"
-                    fi
-                  done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
-                done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
-            
-                echo "</details>"
-              fi
-            
-              # Start Quarantined Tests Section
-              if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
-                echo "<details>"
-                echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
-                echo
-                echo "| Module | Test |"
-                echo "| ------ | ---- |"
-                while IFS= read -r file; do
-                  classname=$(basename "$file" .java)
-                  echo "| ${classname} | @Quarantined |"
-                done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
-                echo "</details>"
-            
-            } >> $GITHUB_STEP_SUMMARY
-
+              echo "| Module | Test | Message | Time |"
+              echo "| ------ | ---- | ------- | ---- |"
+          
+              while IFS= read -r file; do
+                while IFS= read -r testcase; do
+                  if echo "$testcase" | grep -q "<failure"; then
+                    classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                    testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                    message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                    time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
+          
+                    # Get simple class name (last part after the last dot)
+                    simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
+          
+                    # Escape any pipe characters in the message
+                    message=$(echo "$message" | sed 's/|/\\|/g')
+          
+                    echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
+                  fi
+                done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
+              done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
+          
+              echo "</details>"
+            fi
+          
+            # Start Quarantined Tests Section
+            echo "<details>"
+            echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
+            echo
+            echo "| Module | Test |"
+            echo "| ------ | ---- |"
+            while IFS= read -r file; do
+              classname=$(basename "$file" .java)
+              echo "| ${classname} | @Quarantined |"
+            done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
+            echo "</details>"
+          
+          } >> $GITHUB_STEP_SUMMARY
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
         if: always()
@@ -173,6 +172,10 @@ jobs:
           fail_on_failure: true
           require_tests: true
           job_summary: true
+          annotations: true
+          summary: true
+          test_formats: duration  # Show test durations
+          exclude_sources: false  # Include source file info
 
       - name: Upload Test Results
         if: always()
