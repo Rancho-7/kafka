@@ -154,8 +154,7 @@ jobs:
           require_tests: true
           job_summary: true
           annotations: true
-          # Add test timing information
-          test_formats: duration
+          summary: true
 
       - name: Upload Test Results
         if: always()
