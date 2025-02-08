@@ -92,16 +92,17 @@ jobs:
         run: |
             echo "Quarantined Tests:"
             find . -name "*.java" -type f -exec grep -B 1 -A 1 "@Quarantined" {} \; || true
-          - name: Report Failed Tests
-            if: always()  # Make sure this runs even if tests fail
-            run: |
-              echo "Failed Tests:"
-              find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
-              while read file; do
-                classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
-                testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
-                echo "- $classname :: $testname"
-              done
+
+      - name: Report Failed Tests
+        if: always()  # Make sure this runs even if tests fail
+        run: |
+          echo "Failed Tests:"
+          find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
+          while read file; do
+            classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
+            testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
+            echo "- $classname :: $testname"
+          done
 
       - name: Upload Test Results
         if: always()
