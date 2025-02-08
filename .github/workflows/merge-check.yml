@@ -109,15 +109,38 @@ jobs:
           } >> $GITHUB_STEP_SUMMARY || true
 
       - name: Report Failed Tests
-        if: always()  # Make sure this runs even if tests fail
+        if: always()
         run: |
-          echo "Failed Tests:"
-          find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
-          while read file; do
-            classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
-            testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
-            echo "- $classname :: $testname"
-          done
+            echo "Failed Tests:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Store the failed test files in an array
+            mapfile -t failed_files < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \;)
+            
+            if [ ${#failed_files[@]} -eq 0 ]; then
+              echo "No failed tests found." >> $GITHUB_STEP_SUMMARY
+            else
+              for file in "${failed_files[@]}"; do
+                # Extract test class and method names
+                while IFS= read -r testcase; do
+                  if echo "$testcase" | grep -q "<failure"; then
+                    classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                    testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                    message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+            
+                    echo "❌ Class: $classname" >> $GITHUB_STEP_SUMMARY
+                    echo "   Test: $testname" >> $GITHUB_STEP_SUMMARY
+                    if [ ! -z "$message" ]; then
+                      echo "   Error: $message" >> $GITHUB_STEP_SUMMARY
+                    fi
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                  fi
+                done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
+              done
+            fi
+            
+            # Also output to console for immediate feedback
+            cat $GITHUB_STEP_SUMMARY
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
