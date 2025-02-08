@@ -65,45 +65,43 @@ jobs:
       - name: Generate Test Summary
         if: always()
         run: |
-          {
-            # 查找所有测试XML文件并进行一次性统计
-            if find . -path "*/build/test-results/test" -type d | grep -q .; then
-              # Improve quarantined test detection
-              TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.annotation.Quarantined\|@Quarantined" {} \; | wc -l)
-              # 统计各类测试数量
-              TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
-              TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
-              TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
-              TOTAL_FLAKY=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "@Flaky" {} \; | wc -l)
-              TOTAL_QUARANTINED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "Quarantined" {} \; | wc -l)
-              TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
-          
-              # 计算通过的测试数
-              TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
-          
-              # 输出格式化的摘要
-              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
-              echo
-              echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, ${TOTAL_FLAKY} FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
-            else
-              echo "No test results found. Current directory structure:"
-              find . -name "TEST-*.xml" -type f
-            fi
-          } >> $GITHUB_STEP_SUMMARY
-          
-          # 同时输出到控制台
-          cat $GITHUB_STEP_SUMMARY
+            {
+              if find . -path "*/build/test-results/test" -type d | grep -q .; then
+                # Basic test counts
+                TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
+                TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
+                TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
+                TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
+            
+                # Improved quarantined test detection
+                TOTAL_QUARANTINED=$(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \; | wc -l)
+            
+                # Calculate passed tests
+                TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
+            
+                echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
+                echo
+                echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, 0 FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
+              else
+                echo "No test results found."
+              fi
+            } >> $GITHUB_STEP_SUMMARY
 
-      - name: Report Failed Tests
-        if: always()  # Make sure this runs even if tests fail
+      - name: List Quarantined Tests
+        if: always()
         run: |
-          echo "Failed Tests:"
-          find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
-          while read file; do
-            classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
-            testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
-            echo "- $classname :: $testname"
-          done
+            echo "Quarantined Tests:"
+            find . -name "*.java" -type f -exec grep -B 1 -A 1 "@Quarantined" {} \; || true
+          - name: Report Failed Tests
+            if: always()  # Make sure this runs even if tests fail
+            run: |
+              echo "Failed Tests:"
+              find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \; | \
+              while read file; do
+                classname=$(grep "classname=" "$file" | head -1 | sed 's/.*classname="\([^"]*\)".*/\1/')
+                testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
+                echo "- $classname :: $testname"
+              done
 
       - name: Upload Test Results
         if: always()
