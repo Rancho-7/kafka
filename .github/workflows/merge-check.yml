@@ -73,9 +73,9 @@ jobs:
         run: |
             {
               if find . -path "*/build/test-results/test" -type d | grep -q .; then
-                
+            
                 TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
-                
+            
                 # Basic test counts
                 TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
                 TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
@@ -85,9 +85,14 @@ jobs:
                 # Calculate passed tests
                 TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
             
-                echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
-                echo
-                echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, 0 FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
+                # Export variables to GITHUB_ENV to share between steps
+                echo "TOTAL_TESTS=${TOTAL_TESTS}" >> $GITHUB_ENV
+                echo "TOTAL_PASSED=${TOTAL_PASSED}" >> $GITHUB_ENV
+                echo "TOTAL_FAILED=${TOTAL_FAILED}" >> $GITHUB_ENV
+                echo "TOTAL_SKIPPED=${TOTAL_SKIPPED}" >> $GITHUB_ENV
+                echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
+                echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
+            
                 if [ ${TOTAL_FAILED} -gt 0 ]; then
                   echo "::error::${TOTAL_FAILED} tests failed"
                   exit 1
@@ -116,14 +121,14 @@ jobs:
               echo
               echo "## Test Results"
               echo
-              # Print overall summary
-              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
+              # Use variables from GITHUB_ENV
+              echo "${{ env.TOTAL_TESTS }} tests cases run in ${{ env.TOTAL_DURATION }}."
               echo
-              echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, 0 FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
+              echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
               echo
             
               # Start Failed Tests Section if there are failures
-              if [ ${TOTAL_FAILED} -gt 0 ]; then
+              if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
                 echo "<details open=\"true\">"
                 echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
                 echo
@@ -154,7 +159,7 @@ jobs:
             
               # Start Quarantined Tests Section
               echo "<details>"
-              echo "<summary>Quarantined Tests 😷 (${TOTAL_QUARANTINED})</summary>"
+              echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
