@@ -173,10 +173,6 @@ jobs:
           fail_on_failure: true
           require_tests: true
           job_summary: true
-          annotations: true
-          summary: true
-          test_formats: duration  # Show test durations
-          exclude_sources: false  # Include source file info
 
       - name: Upload Test Results
         if: always()
