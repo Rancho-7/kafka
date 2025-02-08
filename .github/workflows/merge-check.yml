@@ -5,13 +5,6 @@ on:
     branches:
       - CI-TEST2
 
-permissions:
-  checks: write
-  contents: read
-  issues: read
-  pull-requests: write
-  security-events: write
-
 jobs:
   test-modules:
     runs-on: ubuntu-latest
@@ -118,36 +111,60 @@ jobs:
       - name: Report Failed Tests
         if: always()
         run: |
-            echo "Failed Tests:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "# Test Summary"
+              echo
+              echo "## Test Results"
+              echo
+              # Print overall summary
+              echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
+              echo
+              echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, 0 FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
+              echo
             
-            # Store the failed test files in an array
-            mapfile -t failed_files < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "<failure" {} \;)
+              # Start Failed Tests Section if there are failures
+              if [ ${TOTAL_FAILED} -gt 0 ]; then
+                echo "<details open=\"true\">"
+                echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
+                echo
+                echo "| Module | Test | Message | Time |"
+                echo "| ------ | ---- | ------- | ---- |"
             
-            if [ ${#failed_files[@]} -eq 0 ]; then
-              echo "No failed tests found." >> $GITHUB_STEP_SUMMARY
-            else
-              for file in "${failed_files[@]}"; do
-                # Extract test class and method names
-                while IFS= read -r testcase; do
-                  if echo "$testcase" | grep -q "<failure"; then
-                    classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                    testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                    message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                while IFS= read -r file; do
+                  while IFS= read -r testcase; do
+                    if echo "$testcase" | grep -q "<failure"; then
+                      classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                      testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                      message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                      time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
             
-                    echo "❌ Class: $classname" >> $GITHUB_STEP_SUMMARY
-                    echo "   Test: $testname" >> $GITHUB_STEP_SUMMARY
-                    if [ ! -z "$message" ]; then
-                      echo "   Error: $message" >> $GITHUB_STEP_SUMMARY
+                      # Get simple class name (last part after the last dot)
+                      simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
+            
+                      # Escape any pipe characters in the message
+                      message=$(echo "$message" | sed 's/|/\\|/g')
+            
+                      echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
                     fi
-                    echo "" >> $GITHUB_STEP_SUMMARY
-                  fi
-                done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
-              done
-            fi
+                  done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
+                done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
             
-            # Also output to console for immediate feedback
-            cat $GITHUB_STEP_SUMMARY
+                echo "</details>"
+              fi
+            
+              # Start Quarantined Tests Section
+              echo "<details>"
+              echo "<summary>Quarantined Tests 😷 (${TOTAL_QUARANTINED})</summary>"
+              echo
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
+              while IFS= read -r file; do
+                classname=$(basename "$file" .java)
+                echo "| ${classname} | @Quarantined |"
+              done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
+              echo "</details>"
+            
+            } >> $GITHUB_STEP_SUMMARY
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
@@ -164,7 +181,6 @@ jobs:
           summary: true
           test_formats: duration  # Show test durations
           exclude_sources: false  # Include source file info
-          token: ${{ secrets.GITHUB_TOKEN }}  # Explicitly specify token
 
       - name: Upload Test Results
         if: always()
