@@ -33,6 +33,7 @@ jobs:
 
       - name: Run Tests
         id: run-tests
+        continue-on-error: false
         run: |
           # 记录开始时间
           start_time=$(date +%s)
@@ -61,27 +62,36 @@ jobs:
           fi
           
           echo "TOTAL_DURATION=$duration_str" >> $GITHUB_ENV
+          
+          if [ $? -ne 0 ]; then
+            echo "Tests failed"
+            exit 1
+          fi
 
       - name: Generate Test Summary
         if: always()
         run: |
             {
               if find . -path "*/build/test-results/test" -type d | grep -q .; then
+                
+                TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
+                
                 # Basic test counts
                 TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
                 TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
                 TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
                 TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
             
-                # Improved quarantined test detection
-                TOTAL_QUARANTINED=$(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \; | wc -l)
-            
                 # Calculate passed tests
-                TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_QUARANTINED))
+                TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
             
                 echo "${TOTAL_TESTS} tests cases run in ${{ env.TOTAL_DURATION }}."
                 echo
                 echo "${TOTAL_PASSED} PASSED ✅, ${TOTAL_FAILED} FAILED ❌, 0 FLAKY ⚠️, ${TOTAL_SKIPPED} SKIPPED 🙈, ${TOTAL_QUARANTINED} QUARANTINED 😷, and ${TOTAL_ERRORS} errors."
+                if [ ${TOTAL_FAILED} -gt 0 ]; then
+                  echo "::error::${TOTAL_FAILED} tests failed"
+                  exit 1
+                fi
               else
                 echo "No test results found."
               fi
@@ -90,8 +100,13 @@ jobs:
       - name: List Quarantined Tests
         if: always()
         run: |
-            echo "Quarantined Tests:"
-            find . -name "*.java" -type f -exec grep -B 1 -A 1 "@Quarantined" {} \; || true
+          echo "Quarantined Tests:" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "Searching in Java files:"
+            find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;
+            echo "Searching in test results:"
+            find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.Quarantined" {} \;
+          } >> $GITHUB_STEP_SUMMARY || true
 
       - name: Report Failed Tests
         if: always()  # Make sure this runs even if tests fail
@@ -103,6 +118,14 @@ jobs:
             testname=$(grep "testcase name=" "$file" | head -1 | sed 's/.*name="\([^"]*\)".*/\1/')
             echo "- $classname :: $testname"
           done
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v3
+        if: always() # always run even if the previous step fails
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          detailed_summary: true
+          include_passed: true
 
       - name: Upload Test Results
         if: always()
