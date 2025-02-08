@@ -5,6 +5,13 @@ on:
     branches:
       - CI-TEST2
 
+permissions:
+  checks: write
+  contents: read
+  issues: read
+  pull-requests: write
+  security-events: write
+
 jobs:
   test-modules:
     runs-on: ubuntu-latest
@@ -155,6 +162,9 @@ jobs:
           job_summary: true
           annotations: true
           summary: true
+          test_formats: duration  # Show test durations
+          exclude_sources: false  # Include source file info
+          token: ${{ secrets.GITHUB_TOKEN }}  # Explicitly specify token
 
       - name: Upload Test Results
         if: always()
