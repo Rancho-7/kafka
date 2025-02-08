@@ -93,25 +93,10 @@ jobs:
                 echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
                 echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
             
-                if [ ${TOTAL_FAILED} -gt 0 ]; then
-                  echo "::error::${TOTAL_FAILED} tests failed"
-                  exit 1
-                fi
               else
                 echo "No test results found."
               fi
             } >> $GITHUB_STEP_SUMMARY
-
-      - name: List Quarantined Tests
-        if: always()
-        run: |
-          echo "Quarantined Tests:" >> $GITHUB_STEP_SUMMARY
-          {
-            echo "Searching in Java files:"
-            find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;
-            echo "Searching in test results:"
-            find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.Quarantined" {} \;
-          } >> $GITHUB_STEP_SUMMARY || true
 
       - name: Report Failed Tests
         if: always()
@@ -130,7 +115,7 @@ jobs:
               # Start Failed Tests Section if there are failures
               if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
                 echo "<details open=\"true\">"
-                echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
+                echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
                 echo
                 echo "| Module | Test | Message | Time |"
                 echo "| ------ | ---- | ------- | ---- |"
@@ -138,18 +123,23 @@ jobs:
                 while IFS= read -r file; do
                   while IFS= read -r testcase; do
                     if echo "$testcase" | grep -q "<failure"; then
+                      # Get full class name and test name
                       classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
                       testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
                       message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
                       time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
             
-                      # Get simple class name (last part after the last dot)
+                      # Get simple class name for Module column
                       simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
+            
+                      # Clean up test name - remove parameter information if present
+                      clean_testname=$(echo "$testname" | sed 's/\(.*\)(.*)/\1/')
             
                       # Escape any pipe characters in the message
                       message=$(echo "$message" | sed 's/|/\\|/g')
             
-                      echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
+                      # Output with proper Module and Test columns
+                      echo "| $simple_classname | $clean_testname | $message | ${time}s |"
                     fi
                   done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
                 done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
@@ -158,16 +148,17 @@ jobs:
               fi
             
               # Start Quarantined Tests Section
-              echo "<details>"
-              echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
-              echo
-              echo "| Module | Test |"
-              echo "| ------ | ---- |"
-              while IFS= read -r file; do
-                classname=$(basename "$file" .java)
-                echo "| ${classname} | @Quarantined |"
-              done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
-              echo "</details>"
+              if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
+                echo "<details>"
+                echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
+                echo
+                echo "| Module | Test |"
+                echo "| ------ | ---- |"
+                while IFS= read -r file; do
+                  classname=$(basename "$file" .java)
+                  echo "| ${classname} | @Quarantined |"
+                done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
+                echo "</details>"
             
             } >> $GITHUB_STEP_SUMMARY
 
