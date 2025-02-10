@@ -126,25 +126,31 @@ jobs:
               echo "| Module | Test | Message | Time |"
               echo "| ------ | ---- | ------- | ---- |"
           
-              while IFS= read -r file; do
-                # Use xmllint or grep to extract complete testcase elements with failures
-                while IFS= read -r testcase; do
-                  classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                  # Get message from the failure tag
-                  message=$(echo "$testcase" | grep -o '<failure message="[^"]*"' | sed 's/<failure message="\([^"]*\)".*/\1/')
-                  time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                  
-                  # Get simple class name (last part after the last dot)
-                  modulename=$(echo "$classname" | rev | cut -d. -f1 | rev)
-                  
-                  # Escape any pipe characters in the message
-                  message=$(echo "$message" | sed 's/|/\\|/g')
-                  
-                  echo "| ${modulename} | ${testname} | ${message} | ${time}s |"
-                done < <(grep -A5 '<testcase.*>.*<failure' "$file" | awk '/<testcase/,/<\/testcase>/ {printf "%s", $0} END {print ""}')
+             while IFS= read -r file; do
+              # Extract only testcases that contain failures, and get the full testcase content
+              testcases=$(grep -A1 "<testcase.*>.*" "$file" | grep -B1 "<failure")
+              
+              while IFS= read -r testcase; do
+                if [[ $testcase == *"<testcase"* ]]; then
+                classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
+                
+                # Read the next line which contains the failure
+                read -r failure_line
+                message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                
+                # Get simple class name (last part after the last dot)
+                modulename=$(echo "$classname" | rev | cut -d. -f1 | rev)
+                
+                # Escape any pipe characters in the message
+                message=$(echo "$message" | sed 's/|/\\|/g')
+                
+                echo "| ${modulename} | ${testname} | ${message} | ${time}s |"
+                fi
+                done <<< "$testcases"
               done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
-          
+            
               echo "</details>"
             fi
           
