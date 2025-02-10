@@ -96,6 +96,7 @@ jobs:
               echo "No test results found."
             fi
           } >> $GITHUB_STEP_SUMMARY
+
       - name: List Quarantined Tests
         if: always()
         run: |
@@ -104,6 +105,7 @@ jobs:
             find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;
             find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.Quarantined" {} \;
           } >> $GITHUB_STEP_SUMMARY || true
+
       - name: Report Failed Tests
         if: always()
         run: |
@@ -117,7 +119,7 @@ jobs:
             echo
             echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-          
+
             # Start Failed Tests Section if there are failures
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
@@ -125,52 +127,45 @@ jobs:
               echo
               echo "| Module | Test | Message | Time |"
               echo "| ------ | ---- | ------- | ---- |"
-          
-             while IFS= read -r file; do
-              while IFS= read -r line; do
-                if [[ $line == *"<testcase"* ]] && grep -q "<failure" -A1 <<< "$line"; then
-                # Get the full testcase element with its failure
-                testcase="$line"
-                read -r failure_line
-                testcase="$testcase$failure_line"
+
+                while IFS= read -r file; do
+                  # Read the file content once
+                  while IFS= read -r line; do
+                    if [[ $line == *"<testcase"* ]] && [[ $(grep -A1 "$line" "$file" | grep -q "<failure"; echo $?) -eq 0 ]]; then
+                    # Extract values using more specific patterns
+                    classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
+                    testname=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2)
+                    message=$(grep -A1 "$line" "$file" | grep "<failure" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
+                    time=$(echo "$line" | grep -o 'time="[^"]*"' | cut -d'"' -f2)
+                    
+                    # Get simple class name
+                    simple_classname=$(echo "$classname" | rev | cut -d'.' -f1 | rev)
+                    
+                    # Escape any pipe characters in the message
+                    message=$(echo "$message" | sed 's/|/\\|/g')
+                    
+                    echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
+                    fi
+                    done < <(grep -A1 "<testcase" "$file")
+                  done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
                 
-                # Extract information from testcase line
-                classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                testname=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                
-                # Extract message from failure line
-                message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-                
-                # Get simple class name (last part after the last dot)
-                simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
-                
-                # Escape any pipe characters in the message
-                message=$(echo "$message" | sed 's/|/\\|/g')
-                
-                echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
-                fi
-                done < "$file"
-              done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
-            
-              echo "</details>"
+                echo "</details>"`
             fi
-          
+
             # Start Quarantined Tests Section
-            if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
-              echo "<details>"
-              echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
-              echo
-              echo "| Module | Test |"
-              echo "| ------ | ---- |"
-              while IFS= read -r file; do
-                classname=$(basename "$file" .java)
-                echo "| ${classname} | @Quarantined |"
-              done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
-              echo "</details>"
-          fi
-          
+            echo "<details>"
+            echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
+            echo
+            echo "| Module | Test |"
+            echo "| ------ | ---- |"
+            while IFS= read -r file; do
+              classname=$(basename "$file" .java)
+              echo "| ${classname} | @Quarantined |"
+            done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
+            echo "</details>"
+
           } >> $GITHUB_STEP_SUMMARY
+
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
         if: always()
