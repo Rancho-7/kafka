@@ -127,29 +127,23 @@ jobs:
               echo "| ------ | ---- | ------- | ---- |"
           
              while IFS= read -r file; do
-              # Extract only testcases that contain failures, and get the full testcase content
-              testcases=$(grep -A1 "<testcase.*>.*" "$file" | grep -B1 "<failure")
-              
-              while IFS= read -r testcase; do
-                if [[ $testcase == *"<testcase"* ]]; then
-                classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                
-                # Read the next line which contains the failure
-                read -r failure_line
-                message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+              # Get each complete testcase that contains a failure
+              xmllint --format "$file" | awk '/<testcase.*>/{p=1;buf=""} p{buf=buf ORS $0} /<\/testcase>/{p=0; if(buf~/failure/){print buf}}' | while IFS= read -r testcase; do
+                if [[ $testcase == *"<failure"* ]]; then
+                # Extract the required information
+                classname=$(echo "$testcase" | grep -o 'classname="[^"]*"' | sed 's/classname="\([^"]*\)".*/\1/')
+                testname=$(echo "$testcase" | grep -o 'name="[^"]*"' | sed 's/name="\([^"]*\)".*/\1/')
+                time=$(echo "$testcase" | grep -o 'time="[^"]*"' | sed 's/time="\([^"]*\)".*/\1/')
+                message=$(echo "$testcase" | grep -o 'message="[^"]*"' | sed 's/message="\([^"]*\)".*/\1/')
                 
                 # Get simple class name (last part after the last dot)
                 modulename=$(echo "$classname" | rev | cut -d. -f1 | rev)
                 
-                # Escape any pipe characters in the message
-                message=$(echo "$message" | sed 's/|/\\|/g')
-                
+                # Output the row
                 echo "| ${modulename} | ${testname} | ${message} | ${time}s |"
                 fi
-                done <<< "$testcases"
-              done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
+              done
+            done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
             
               echo "</details>"
             fi
