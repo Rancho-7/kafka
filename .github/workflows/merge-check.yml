@@ -120,41 +120,36 @@ jobs:
           
             # Start Failed Tests Section if there are failures
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
-              echo "<details open=\"true\">"
-              echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
-              echo
-              echo "| Module | Test | Message | Time |"
-              echo "| ------ | ---- | ------- | ---- |"
+            echo "<details open=\"true\">"
+            echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
+            echo
+            echo "| Module | Test | Message | Time |"
+            echo "| ------ | ---- | ------- | ---- |"
           
-               while IFS= read -r file; do
-                while IFS= read -r line; do
-                  if [[ $line == *"<testcase"* ]] && grep -q "<failure" -A1 <<< "$line"; then
-                  # Get the full testcase element with its failure
-                  testcase="$line"
-                  read -r failure_line
-                  testcase="$testcase$failure_line"
-                  
-                  # Extract information from testcase line
+            find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+              while IFS= read -r line; do
+                if [[ $line == *"<testcase"* ]] && [[ $line == *"name="* ]]; then
+                  # 从 message 中提取方法名
+                  read -r next_line
+                  if [[ $next_line == *"<failure"* ]]; then
+                  # 提取类名作为模块名
                   classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  # Get simple class name (last part after the last dot)
                   simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
+                
+                  # 严格按照原始脚本提取测试名称和消息
+                  testname=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2 | sed 's/.*: \([^()]*\).* timed out.*/\1/')
+                  message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
                   
-                  # 从错误消息中提取方法名（在 "timed out" 之前的部分）
-                  testname=$(echo "$failure_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2 | sed 's/.*: \([^()]*\).* timed out.*/\1/')
+                  # 提取时间（这是workflow特有的需求）
                   time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
                   
-                  # Extract message from failure line
-                  message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-                  
-                  # Escape any pipe characters in the message
-                  message=$(echo "$message" | sed 's/|/\\|/g')
-                  
-                  echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
+                  echo "| ${classname} | ${testname} | ${message} | ${time}s |"
                   fi
-                done < "$file"
-              done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
+                fi
+              done < "$file"
+            done
           
-              echo "</details>"
+            echo "</details>"
             fi
           
             # Start Quarantined Tests Section
