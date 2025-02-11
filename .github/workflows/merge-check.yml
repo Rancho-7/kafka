@@ -120,35 +120,28 @@ jobs:
               echo "| ------ | ---- | ------- | ---- |"
               
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-                current_testcase=""
-                current_name=""
-                current_classname=""
-                current_time=""
-                in_failed_testcase=false
+                # 使用grep组合来获取失败的测试用例及其上下文
+                while IFS= read -r testcase_line; do
+                  # 读取下一行（可能是failure行）
+                  read -r failure_line
                 
-                while IFS= read -r line; do
-                if [[ $line == *"<testcase"* ]]; then
-                  # 重置状态，开始新的测试用例
-                  current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                  current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  current_time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                  in_failed_testcase=false
-                elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
-                  # 找到失败标记，提取信息并输出
-                  in_failed_testcase=true
-                  message=$(echo "$line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-                  testname=$(echo "$current_name" | sed 's/()$//')
-                  message=$(echo "$message" | sed 's/|/\\|/g')
-                  echo "| ${module} | ${testname} | ${message} | ${current_time}s |"
-                  elif [[ $line == *"</testcase>"* ]]; then
-                  # 重置状态，结束当前测试用例
-                  current_name=""
-                  current_classname=""
-                  current_time=""
-                  in_failed_testcase=false
-                fi
-                done < "$file"
+                  # 从testcase行提取信息
+                  current_name=$(echo "$testcase_line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                  current_classname=$(echo "$testcase_line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                  current_time=$(echo "$testcase_line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
+                
+                  # 从failure行提取信息
+                  if [[ $failure_line == *"<failure"* ]]; then
+                    message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                    # 获取简单类名（最后一个点后的部分）
+                    module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+                    # 直接使用current_name作为测试名（去掉括号）
+                    testname=$(echo "$current_name" | sed 's/()$//')
+                    # 转义消息中的管道字符
+                    message=$(echo "$message" | sed 's/|/\\|/g')
+                    echo "| ${module} | ${testname} | ${message} | ${current_time}s |"
+                  fi
+                done < <(grep -A1 "<testcase" "$file" | grep -v "^--$")
               done
             
             echo "</details>"
