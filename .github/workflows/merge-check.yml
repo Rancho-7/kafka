@@ -126,28 +126,29 @@ jobs:
             echo "| Module | Test | Message | Time |"
             echo "| ------ | ---- | ------- | ---- |"
             
-            find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-              module=$(head -n 1 "$file" | grep -o 'name="[^"]*"' | head -1 | cut -d'"' -f2 | rev | cut -d'.' -f1 | rev)
+            while IFS= read -r file; do
+            while IFS= read -r testcase; do
+            if echo "$testcase" | grep -q "<failure"; then
+            # 从testcase行提取信息
+            classname=$(echo "$testcase" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+            testname=$(echo "$testcase" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+            time=$(echo "$testcase" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
             
-              while IFS= read -r line; do
-                  if [[ $line == *"<testcase"* ]] && [[ $line == *"name="* ]]; then
-                  # 从当前行提取时间
-                  time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                  
-                  # 读取下一行检查是否失败
-                  read -r next_line
-                  if [[ $next_line == *"<failure"* ]]; then
-                  # 提取测试名称和消息
-                  testname=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2 | sed 's/.*: \([^()]*\).* timed out.*/\1/')
-                  message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
-                  
-                  echo "| ${module} | ${testname} | ${message} | ${time}s |"
-                  fi
-                fi
-                done < "$file"
-              done
+            # 从下一行提取failure message
+            message=$(echo "$testcase" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
             
-              echo "</details>"
+            # 获取简单类名（最后一个点后的部分）
+            simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
+            
+            # 转义消息中的管道字符
+            message=$(echo "$message" | sed 's/|/\\|/g')
+            
+            echo "| ${simple_classname} | ${testname} | ${message} | ${time}s |"
+            fi
+            done < <(grep -A1 "<testcase" "$file" | grep -B1 "<failure")
+            done < <(find . -path "*/build/test-results/test/TEST-*.xml" -type f)
+            
+            echo "</details>"
             fi
           
             # Start Quarantined Tests Section
