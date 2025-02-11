@@ -96,14 +96,7 @@ jobs:
               echo "No test results found."
             fi
           } >> $GITHUB_STEP_SUMMARY
-      - name: List Quarantined Tests
-        if: always()
-        run: |
-          echo "Quarantined Tests:" >> $GITHUB_STEP_SUMMARY
-          {
-            find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;
-            find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -l "org.apache.kafka.test.Quarantined" {} \;
-          } >> $GITHUB_STEP_SUMMARY || true
+
       - name: Report Failed Tests
         if: always()
         run: |
@@ -119,44 +112,44 @@ jobs:
             echo
           
             # Start Failed Tests Section if there are failures
-            # Start Failed Tests Section if there are failures
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
-            echo "<details open=\"true\">"
-            echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
-            echo
-            echo "| Module | Test | Message | Time |"
-            echo "| ------ | ---- | ------- | ---- |"
-            
-            find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-            current_testcase=""
-            current_name=""
-            current_classname=""
-            current_time=""
-            in_failed_testcase=false
-            
-            while IFS= read -r line; do
-            if [[ $line == *"<testcase"* ]]; then
-            # 重置状态，开始新的测试用例
-            current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-            current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-            current_time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-            in_failed_testcase=false
-            elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
-            # 找到失败标记，提取信息并输出
-            in_failed_testcase=true
-            message=$(echo "$line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-            module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-            message=$(echo "$message" | sed 's/|/\\|/g')
-            echo "| ${module} | ${current_name} | ${message} | ${current_time}s |"
-            elif [[ $line == *"</testcase>"* ]]; then
-            # 重置状态，结束当前测试用例
-            current_name=""
-            current_classname=""
-            current_time=""
-            in_failed_testcase=false
-            fi
-            done < "$file"
-            done
+              echo "<details open=\"true\">"
+              echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
+              echo
+              echo "| Module | Test | Message | Time |"
+              echo "| ------ | ---- | ------- | ---- |"
+              
+              find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+                current_testcase=""
+                current_name=""
+                current_classname=""
+                current_time=""
+                in_failed_testcase=false
+                
+                while IFS= read -r line; do
+                if [[ $line == *"<testcase"* ]]; then
+                  # 重置状态，开始新的测试用例
+                  current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                  current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                  current_time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
+                  in_failed_testcase=false
+                elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
+                  # 找到失败标记，提取信息并输出
+                  in_failed_testcase=true
+                  message=$(echo "$line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
+                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+                  testname=$(echo "$current_name" | sed 's/()$//')
+                  message=$(echo "$message" | sed 's/|/\\|/g')
+                  echo "| ${module} | ${testname} | ${message} | ${current_time}s |"
+                  elif [[ $line == *"</testcase>"* ]]; then
+                  # 重置状态，结束当前测试用例
+                  current_name=""
+                  current_classname=""
+                  current_time=""
+                  in_failed_testcase=false
+                fi
+                done < "$file"
+              done
             
             echo "</details>"
             fi
