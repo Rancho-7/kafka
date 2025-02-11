@@ -125,31 +125,29 @@ jobs:
             echo
             echo "| Module | Test | Message | Time |"
             echo "| ------ | ---- | ------- | ---- |"
-          
+            
             find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+              module=$(head -n 1 "$file" | grep -o 'name="[^"]*"' | head -1 | cut -d'"' -f2 | rev | cut -d'.' -f1 | rev)
+            
               while IFS= read -r line; do
-                if [[ $line == *"<testcase"* ]] && [[ $line == *"name="* ]]; then
-                  # 从 message 中提取方法名
+                  if [[ $line == *"<testcase"* ]] && [[ $line == *"name="* ]]; then
+                  # 从当前行提取时间
+                  time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
+                  
+                  # 读取下一行检查是否失败
                   read -r next_line
                   if [[ $next_line == *"<failure"* ]]; then
-                  # 提取类名作为模块名
-                  classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  simple_classname=$(echo "$classname" | rev | cut -d. -f1 | rev)
-                
-                  # 严格按照原始脚本提取测试名称和消息
+                  # 提取测试名称和消息
                   testname=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2 | sed 's/.*: \([^()]*\).* timed out.*/\1/')
                   message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
                   
-                  # 提取时间（这是workflow特有的需求）
-                  time=$(echo "$line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                  
-                  echo "| ${classname} | ${testname} | ${message} | ${time}s |"
+                  echo "| ${module} | ${testname} | ${message} | ${time}s |"
                   fi
                 fi
-              done < "$file"
-            done
-          
-            echo "</details>"
+                done < "$file"
+              done
+            
+              echo "</details>"
             fi
           
             # Start Quarantined Tests Section
