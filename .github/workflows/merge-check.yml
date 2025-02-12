@@ -110,7 +110,6 @@ jobs:
             echo
             echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-
             # Process failed tests
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
@@ -118,13 +117,12 @@ jobs:
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
-
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
                 while IFS= read -r line; do
                   if [[ $line == *"<testcase"* ]]; then
                     # Get only the first line of the name attribute (method name)
                     raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
-                    # Keep test name with () for consistency with image
+                    # Keep () in test name to match desired format
                     test_name=$raw_name
 
                     current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
@@ -138,10 +136,8 @@ jobs:
                   fi
                 done < "$file"
               done
-
               echo "</details>"
             fi
-
             # Process quarantined tests
             if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
               echo "<details>"
