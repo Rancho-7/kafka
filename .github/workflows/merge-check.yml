@@ -110,44 +110,44 @@ jobs:
             echo
             echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-          
-            # Start Failed Tests Section if there are failures
+
+            # Process failed tests
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
-              echo "<summary>Failed Tests FAILED ❌ (${TOTAL_FAILED})</summary>"
+              echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
               echo
               echo "| Module | Test | Message | Time |"
               echo "| ------ | ---- | ------- | ---- |"
-              
+
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-                # 使用grep组合来获取失败的测试用例及其上下文
-                while IFS= read -r testcase_line; do
-                  # 读取下一行（可能是failure行）
-                  read -r failure_line
-                
-                  # 从testcase行提取信息
-                  current_name=$(echo "$testcase_line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                  current_classname=$(echo "$testcase_line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  current_time=$(echo "$testcase_line" | sed -n 's/.*time="\([^"]*\)".*/\1/p')
-                
-                  # 从failure行提取信息
-                  if [[ $failure_line == *"<failure"* ]]; then
-                    message=$(echo "$failure_line" | sed -n 's/.*message="\([^"]*\)".*/\1/p')
-                    # 获取简单类名（最后一个点后的部分）
+                while IFS= read -r line; do
+                  if [[ $line == *"<testcase"* ]]; then
+                    # Get only the first line of the name attribute (method name)
+                    raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
+                    # Remove () from test name
+                    clean_name=$(echo "$raw_name" | cut -d$'\n' -f1 | sed 's/()$//')
+
+                    current_time=$(echo "$line" | grep -o 'time="[^"]*"' | cut -d'"' -f2)
+                    current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
                     module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-                    # 直接使用current_name作为测试名（去掉括号）
-                    testname=$(echo "$current_name" | sed 's/()$//')
-                    # 转义消息中的管道字符
-                    message=$(echo "$message" | sed 's/|/\\|/g')
-                    echo "| ${module} | ${testname} | ${message} | ${current_time}s |"
+
+                    # Read next line for potential failure
+                    read -r next_line
+                    if [[ $next_line == *"<failure"* ]]; then
+                      message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
+                      # Escape pipe characters in message
+                      message=$(echo "$message" | sed 's/|/\\|/g')
+
+                      printf "| %s | %s | %s | %ss |\n" "$module" "$clean_name" "$message" "$current_time"
+                    fi
                   fi
-                done < <(grep -A1 "<testcase" "$file" | grep -v "^--$")
+                done < "$file"
               done
-            
-            echo "</details>"
+
+              echo "</details>"
             fi
-          
-            # Start Quarantined Tests Section
+
+            # Process quarantined tests
             if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
               echo "<details>"
               echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
@@ -159,8 +159,7 @@ jobs:
                 echo "| ${classname} | @Quarantined |"
               done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
               echo "</details>"
-          fi
-          
+            fi
           } >> $GITHUB_STEP_SUMMARY
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
