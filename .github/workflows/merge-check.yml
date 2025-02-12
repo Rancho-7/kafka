@@ -168,21 +168,14 @@ jobs:
               echo "</details>"
             fi
           } >> $GITHUB_STEP_SUMMARY
+
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v3
         if: always()
+        uses: mikepenz/action-junit-report@v3
         with:
           report_paths: '**/build/test-results/test/TEST-*.xml'
           detailed_summary: true
-          include_passed: true
-          check_name: 'Test Results'
-          fail_on_failure: true
-          require_tests: true
           job_summary: true
-          annotations: true
-          summary: true
-          test_formats: duration  # Show test durations
-          exclude_sources: false  # Include source file info
 
       - name: Upload Test Results
         if: always()
