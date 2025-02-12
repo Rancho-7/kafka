@@ -116,36 +116,24 @@ jobs:
               echo "<details open=\"true\">"
               echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
               echo
-              echo "| Module | Test | Message | Time |"
-              echo "| ------ | ---- | ------- | ---- |"
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
 
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
                 while IFS= read -r line; do
                   if [[ $line == *"<testcase"* ]]; then
                     # Get only the first line of the name attribute (method name)
                     raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
-                    # Remove () from test name
-                    clean_name=$(echo "$raw_name" | cut -d$'\n' -f1 | sed 's/()$//')
+                    # Keep test name with () for consistency with image
+                    test_name=$raw_name
 
-                    current_time=$(echo "$line" | grep -o 'time="[^"]*"' | cut -d'"' -f2)
                     current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
                     module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
 
                     # Read next line for potential failure
                     read -r next_line
                     if [[ $next_line == *"<failure"* ]]; then
-                      # Extract message and get only the first line of error (usually contains the main error message)
-                      full_message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
-                      # Get only the first line of the message and truncate if too long
-                      message=$(echo "$full_message" | head -n1 | cut -c1-100)
-                      # Add ellipsis if message was truncated
-                      if [ ${#full_message} -gt 100 ]; then
-                        message="${message}..."
-                      fi
-                      # Escape pipe characters in message
-                      message=$(echo "$message" | sed 's/|/\\|/g')
-
-                      printf "| %s | %s | %s | %.2fs |\n" "$module" "$clean_name" "$message" "$current_time"
+                      printf "| %s | %s |\n" "$module" "$test_name"
                     fi
                   fi
                 done < "$file"
