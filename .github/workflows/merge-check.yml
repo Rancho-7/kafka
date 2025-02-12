@@ -134,11 +134,18 @@ jobs:
                     # Read next line for potential failure
                     read -r next_line
                     if [[ $next_line == *"<failure"* ]]; then
-                      message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
+                      # Extract message and get only the first line of error (usually contains the main error message)
+                      full_message=$(echo "$next_line" | grep -o 'message="[^"]*"' | cut -d'"' -f2)
+                      # Get only the first line of the message and truncate if too long
+                      message=$(echo "$full_message" | head -n1 | cut -c1-100)
+                      # Add ellipsis if message was truncated
+                      if [ ${#full_message} -gt 100 ]; then
+                        message="${message}..."
+                      fi
                       # Escape pipe characters in message
                       message=$(echo "$message" | sed 's/|/\\|/g')
 
-                      printf "| %s | %s | %s | %ss |\n" "$module" "$clean_name" "$message" "$current_time"
+                      printf "| %s | %s | %s | %.2fs |\n" "$module" "$clean_name" "$message" "$current_time"
                     fi
                   fi
                 done < "$file"
