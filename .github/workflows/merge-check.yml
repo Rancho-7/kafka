@@ -120,25 +120,22 @@ jobs:
               echo "| ------ | ---- |"
 
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-                current_testcase=""
-                current_name=""
-                current_classname=""
-                in_failed_testcase=false
-
                 while IFS= read -r line; do
-                if [[ $line == *"<testcase"* ]]; then
-                  current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                  current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
-                  in_failed_testcase=false
-                elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
-                  in_failed_testcase=true
-                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-                  echo "| ${module} | ${current_name} |"
-                elif [[ $line == *"</testcase>"* ]]; then
-                  current_name=""
-                  current_classname=""
-                  in_failed_testcase=false
-                fi
+                  if [[ $line == *"<testcase"* ]]; then
+                    # Get test name and extract method name
+                    raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
+                    # Keep the () for method name
+                    method_name="$raw_name"
+
+                    current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
+                    module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+
+                    # Read next line for potential failure
+                    read -r next_line
+                    if [[ $next_line == *"<failure"* ]]; then
+                      echo "| ${module} | ${method_name} |"
+                    fi
+                  fi
                 done < "$file"
               done
 
