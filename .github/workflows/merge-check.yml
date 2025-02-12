@@ -110,34 +110,41 @@ jobs:
             echo
             echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-            # Process failed tests
+
+            # Start Failed Tests Section if there are failures
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
               echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
+
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+                current_testcase=""
+                current_name=""
+                current_classname=""
+                in_failed_testcase=false
+
                 while IFS= read -r line; do
-                  if [[ $line == *"<testcase"* ]]; then
-                    # Get only the first line of the name attribute (method name)
-                    raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
-                    # Keep () in test name to match desired format
-                    test_name=$raw_name
-
-                    current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
-                    module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-
-                    # Read next line for potential failure
-                    read -r next_line
-                    if [[ $next_line == *"<failure"* ]]; then
-                      printf "| %s | %s |\n" "$module" "$test_name"
-                    fi
-                  fi
+                if [[ $line == *"<testcase"* ]]; then
+                  current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                  current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                  in_failed_testcase=false
+                elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
+                  in_failed_testcase=true
+                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+                  echo "| ${module} | ${current_name} |"
+                elif [[ $line == *"</testcase>"* ]]; then
+                  current_name=""
+                  current_classname=""
+                  in_failed_testcase=false
+                fi
                 done < "$file"
               done
+
               echo "</details>"
             fi
+
             # Process quarantined tests
             if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
               echo "<details>"
