@@ -96,7 +96,6 @@ jobs:
               echo "No test results found."
             fi
           } >> $GITHUB_STEP_SUMMARY
-
       - name: Report Failed Tests
         if: always()
         run: |
@@ -110,7 +109,6 @@ jobs:
             echo
             echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-
             # Start Failed Tests Section if there are failures
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
@@ -118,30 +116,26 @@ jobs:
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
-
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+                current_testcase=""
+                current_name=""
+                current_classname=""
+                in_failed_testcase=false
                 while IFS= read -r line; do
-                  if [[ $line == *"<testcase"* ]]; then
-                    # Get test name and extract method name
-                    raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
-                    # Keep the () for method name
-                    method_name="$raw_name"
-
-                    current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
-                    module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
-
-                    # Read next line for potential failure
-                    read -r next_line
-                    if [[ $next_line == *"<failure"* ]]; then
-                      echo "| ${module} | ${method_name} |"
-                    fi
-                  fi
+                if [[ $line == *"<testcase"* ]]; then
+                  # Get test name and keep the ()
+                  current_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
+                  current_classname=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
+                  in_failed_testcase=false
+                elif [[ $line == *"<failure"* ]] && [[ -n "$current_name" ]]; then
+                  in_failed_testcase=true
+                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+                  printf "| %s | %s |\n" "$module" "$current_name"
+                fi
                 done < "$file"
               done
-
               echo "</details>"
             fi
-
             # Process quarantined tests
             if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
               echo "<details>"
@@ -156,7 +150,6 @@ jobs:
               echo "</details>"
             fi
           } >> $GITHUB_STEP_SUMMARY
-
       - name: Publish Test Report
         if: always()
         uses: mikepenz/action-junit-report@v3
