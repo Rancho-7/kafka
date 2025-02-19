@@ -7725,6 +7725,70 @@ public class KafkaAdminClientTest {
     }
 
     @Test
+    public void testDefaultNameQuotaIsNotEqualToDefaultQuota() throws Exception {
+        try (AdminClientUnitTestEnv env = mockClientEnv()) {
+            env.kafkaClient().setNodeApiVersions(NodeApiVersions.create());
+            final String defaultQuota = "<default>";
+
+            ClientQuotaEntity userEntity = newClientQuotaEntity(ClientQuotaEntity.USER, defaultQuota);
+            ClientQuotaEntity clientEntity = newClientQuotaEntity(ClientQuotaEntity.CLIENT_ID, defaultQuota);
+            ClientQuotaEntity ipEntity = newClientQuotaEntity(ClientQuotaEntity.IP, defaultQuota);
+
+            Map<ClientQuotaEntity, ApiError> response = new HashMap<>(3);
+            response.put(userEntity, new ApiError(Errors.NONE));
+            response.put(clientEntity, new ApiError(Errors.NONE));
+            response.put(ipEntity, new ApiError(Errors.NONE));
+
+            env.kafkaClient().prepareResponse(AlterClientQuotasResponse.fromQuotaEntities(response, 0));
+
+            List<ClientQuotaAlteration> alterations = new ArrayList<>(3);
+            alterations.add(new ClientQuotaAlteration(userEntity, singleton(new ClientQuotaAlteration.Op("consumer_byte_rate", 10000D))));
+            alterations.add(new ClientQuotaAlteration(clientEntity, singleton(new ClientQuotaAlteration.Op("producer_byte_rate", 10000D))));
+            alterations.add(new ClientQuotaAlteration(ipEntity, singleton(new ClientQuotaAlteration.Op("producer_byte_rate", 1000D))));
+
+            AlterClientQuotasResult result = env.adminClient().alterClientQuotas(alterations);
+            result.all().get();
+            Map<ClientQuotaEntity, KafkaFuture<Void>> values = result.values();
+            assertEquals(3, values.size());
+
+            values.forEach((entity, future) -> {
+                String entityName = entity.entries().values().iterator().next();
+                assertEquals(defaultQuota, entityName);
+            });
+
+
+            Map<ClientQuotaEntity, Map<String, Double>> userQuotaResponse = new HashMap<>();
+            env.kafkaClient().prepareResponse(DescribeClientQuotasResponse.fromQuotaEntities(userQuotaResponse, 0));
+            Map<ClientQuotaEntity, Map<String, Double>> userQuotas = env.adminClient()
+                    .describeClientQuotas(ClientQuotaFilter.containsOnly(Collections.singletonList(
+                            ClientQuotaFilterComponent.ofDefaultEntity(ClientQuotaEntity.USER))))
+                    .entities()
+                    .get();
+
+            Map<ClientQuotaEntity, Map<String, Double>> clientQuotaResponse = new HashMap<>();
+            env.kafkaClient().prepareResponse(DescribeClientQuotasResponse.fromQuotaEntities(clientQuotaResponse, 0));
+            Map<ClientQuotaEntity, Map<String, Double>> clientQuotas = env.adminClient()
+                    .describeClientQuotas(ClientQuotaFilter.containsOnly(Collections.singletonList(
+                            ClientQuotaFilterComponent.ofDefaultEntity(ClientQuotaEntity.CLIENT_ID))))
+                    .entities()
+                    .get();
+
+            Map<ClientQuotaEntity, Map<String, Double>> ipQuotaResponse = new HashMap<>();
+            env.kafkaClient().prepareResponse(DescribeClientQuotasResponse.fromQuotaEntities(ipQuotaResponse, 0));
+            Map<ClientQuotaEntity, Map<String, Double>> ipQuotas = env.adminClient()
+                    .describeClientQuotas(ClientQuotaFilter.containsOnly(Collections.singletonList(
+                            ClientQuotaFilterComponent.ofDefaultEntity(ClientQuotaEntity.IP))))
+                    .entities()
+                    .get();
+
+            assertEquals(0, userQuotas.size());
+            assertEquals(0, clientQuotas.size());
+            assertEquals(0, ipQuotas.size());
+
+        }
+    }
+
+    @Test
     public void testEqualsOfClientQuotaFilterComponent() {
         assertEquals(ClientQuotaFilterComponent.ofDefaultEntity(ClientQuotaEntity.USER),
             ClientQuotaFilterComponent.ofDefaultEntity(ClientQuotaEntity.USER));
