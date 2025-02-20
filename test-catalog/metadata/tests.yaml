@@ -9,6 +9,10 @@ org.apache.kafka.controller.AclControlManagerTest:
 - testValidateNewAcl
 org.apache.kafka.controller.ActivationRecordsGeneratorTest:
 - testActivationMessageForEmptyLog
+- testActivationMessageForEmptyLogAtMv3_4
+- testActivationMessageForEmptyLogAtMv3_6
+- testActivationMessageForEmptyLogAtMv3_6WithTransaction
+- testActivationMessageForEmptyLogAtMv3_6WithTransactionAndElr
 org.apache.kafka.controller.BrokerHeartbeatManagerTest:
 - testCalculateNextBrokerState
 - testControlledShutdownOffsetIsOnlyUpdatedOnce
@@ -64,8 +68,9 @@ org.apache.kafka.controller.ClusterControlManagerTest:
 - testHasOnlineDir
 - testPlaceReplicas
 - testReRegistrationAndBrokerEpoch
+- testReRegistrationWithCleanShutdownDetection
 - testRegisterBrokerRecordVersion
-- testRegisterControlWithOlderMetadataVersion
+- testRegisterControlWithUnsupportedMetadataVersion
 - testRegisterWithDuplicateDirectoryId
 - testRegistrationWithIncorrectClusterId
 - testRegistrationWithUnsupportedFeature
@@ -83,14 +88,28 @@ org.apache.kafka.controller.ConfigurationControlManagerTest:
 - testIncrementalAlterConfigsWithoutExistence
 - testIncrementalAlterMultipleConfigValues
 - testLegacyAlterConfigs
+- testMaybeGenerateElrSafetyRecords
+- testRejectMinIsrChangeWhenElrEnabled
 - testReplay
+org.apache.kafka.controller.EventPerformanceMonitorTest:
+- testDefaultPeriodNs
+- testDoNotLogFastEvent
+- testFormatNsAsDecimalMsWith100
+- testFormatNsAsDecimalMsWith123456789
+- testFormatNsAsDecimalMsWithZero
+- testGeneratePeriodicPerformanceMessageResetsState
+- testLogSlowEvent
+- testPeriodicPerformanceMessageWithNoEvents
+- testPeriodicPerformanceMessageWithOneEvent
+- testPeriodicPerformanceMessageWithThreeEvents
+- testSlowestEventWithNoEvents
+- testSlowestEventWithThreeEvents
 org.apache.kafka.controller.FeatureControlManagerTest:
 - testApplyMetadataVersionChangeRecord
 - testCanUpgradeToHigherVersion
 - testCanUseSafeDowngradeIfMetadataDidNotChange
-- testCannotDowngradeBefore3_3_IV0
+- testCannotDowngradeBeforeMinimumKraftVersion
 - testCannotDowngradeToHigherVersion
-- testCannotDowngradeToVersionBeforeMinimumSupportedKraftVersion
 - testCannotUnsafeDowngradeToHigherVersion
 - testCannotUpgradeToLowerVersion
 - testCannotUseSafeDowngradeIfMetadataChanged
@@ -100,6 +119,7 @@ org.apache.kafka.controller.FeatureControlManagerTest:
 - testUnsafeDowngradeIsTemporarilyDisabled
 - testUpdateFeatures
 - testUpdateFeaturesErrorCases
+- testUpgradeElrFeatureLevel
 org.apache.kafka.controller.LogReplayTrackerTest:
 - testEmpty
 org.apache.kafka.controller.OffsetControlManagerTest:
@@ -203,11 +223,13 @@ org.apache.kafka.controller.QuorumControllerTest:
 - testConfigurationOperations
 - testDelayedConfigurationOperations
 - testEarlyControllerResults
+- testElrEnabledByDefault
 - testFatalMetadataErrorDuringLogLoading
 - testFatalMetadataErrorDuringSnapshotLoading
 - testFatalMetadataReplayErrorOnActive
 - testFenceMultipleBrokers
 - testInsertBootstrapRecordsToEmptyLog
+- testMinIsrUpdateWithElr
 - testNoOpRecordWriteAfterTimeout
 - testRegisterBrokerKRaftVersions
 - testSnapshotSaveAndLoad
@@ -215,7 +237,6 @@ org.apache.kafka.controller.QuorumControllerTest:
 - testUncleanShutdownBrokerElrEnabled
 - testUncleanShutdownElrDisabled
 - testUnregisterBroker
-- testUpgradeFromPreProductionVersion
 org.apache.kafka.controller.QuorumFeaturesTest:
 - ensureDefaultSupportedFeaturesRangeMaxNotZero
 - testDefaultFeatureMap
@@ -252,7 +273,10 @@ org.apache.kafka.controller.ReplicationControlManagerTest:
 - testEligibleLeaderReplicas_DeleteTopic
 - testEligibleLeaderReplicas_EffectiveMinIsr
 - testEligibleLeaderReplicas_ShrinkAndExpandIsr
+- testEligibleLeaderReplicas_ShrinkToEmptyIsr
 - testEligibleLeaderReplicas_UncleanShutdown
+- testElrsRemovedOnMinIsrUpdate
+- testElrsRemovedShouldNotBumpPartitionEpochIfNoChange
 - testExcessiveNumberOfTopicsCannotBeCreated
 - testExcessiveNumberOfTopicsCannotBeCreatedWithAssignments
 - testFenceMultipleBrokers
@@ -323,6 +347,7 @@ org.apache.kafka.controller.metrics.ControllerMetadataMetricsTest:
 - testFencedBrokerMetric
 - testGlobalPartitionCountMetric
 - testGlobalTopicCountMetric
+- testIgnoredStaticVoters
 - testMetadataErrorCount
 - testMetricNames
 - testOfflinePartitionCountMetric
@@ -336,7 +361,6 @@ org.apache.kafka.controller.metrics.ControllerMetricsChangesTest:
 - testHandleNewFencedBroker
 - testHandleNewTopic
 - testHandleNewUnfencedBroker
-- testHandleZkBroker
 - testInitialValues
 - testTopicChange
 org.apache.kafka.controller.metrics.QuorumControllerMetricsTest:
@@ -379,11 +403,14 @@ org.apache.kafka.image.DelegationTokenImageTest:
 - testEmptyImageRoundTrip
 - testEmptyWithInvalidIBP
 - testImage1RoundTrip
-- testImage1withInvalidIBP
+- testImage1WithInvalidIBP
 - testImage2RoundTrip
+org.apache.kafka.image.FeaturesDeltaTest:
+- testReplayWithUnsupportedFeatureLevel
 org.apache.kafka.image.FeaturesImageTest:
 - testApplyDelta1
 - testApplyDelta2
+- testElrEnabled
 - testEmpty
 - testEmptyImageRoundTrip
 - testImage1RoundTrip
@@ -391,9 +418,7 @@ org.apache.kafka.image.FeaturesImageTest:
 - testImage3RoundTrip
 org.apache.kafka.image.ImageDowngradeTest:
 - testDirectoryAssignmentState
-- testPreControlledShutdownStateVersion
 - testPreZkMigrationSupportVersion
-- testPremodernVersion
 org.apache.kafka.image.MetadataImageTest:
 - testApplyDelta1
 - testEmptyImageRoundTrip
@@ -418,6 +443,8 @@ org.apache.kafka.image.ScramImageTest:
 org.apache.kafka.image.TopicsImageTest:
 - testApplyDelta1
 - testBasicLocalChanges
+- testClearElrRecordForNonExistTopic
+- testClearElrRecords
 - testDeleteAfterChanges
 - testEmptyImageRoundTrip
 - testImage1RoundTrip
@@ -494,6 +521,8 @@ org.apache.kafka.image.node.ConfigurationImageNodeTest:
 org.apache.kafka.image.node.ConfigurationsImageNodeTest:
 - testNodeChildNameParsing
 - testNodeChildNames
+org.apache.kafka.image.node.MetadataImageNodeTest:
+- shouldGetAclsImageNode
 org.apache.kafka.image.node.ScramCredentialDataNodeTest:
 - testPrintRedacted
 - testPrintUnredacted
@@ -553,9 +582,10 @@ org.apache.kafka.image.writer.ImageReWriterTest:
 - testWrite
 - testWriteAfterClose
 org.apache.kafka.image.writer.ImageWriterOptionsTest:
+- testConstructionWithImage
 - testDefaultLossHandler
 - testHandleLoss
-- testSetMetadataVersion
+- testSetEligibleLeaderReplicasEnabled
 org.apache.kafka.image.writer.RaftSnapshotWriterTest:
 - testCloseWithoutFreeze
 - testFreezeAndClose
@@ -647,6 +677,9 @@ org.apache.kafka.metadata.MetadataRecordSerdeTest:
 - testParsingUnsupportedApiKey
 - testParsingVersionTooLarge
 - testSerde
+org.apache.kafka.metadata.MockConfigRepositoryTest:
+- testEmptyRepository
+- testSetTopicConfig
 org.apache.kafka.metadata.OptionalStringComparatorTest:
 - testComparisons
 org.apache.kafka.metadata.PartitionRegistrationTest:
@@ -729,9 +762,7 @@ org.apache.kafka.metadata.authorizer.StandardAuthorizerTest:
 - testTopicAclWithOperationAll
 org.apache.kafka.metadata.bootstrap.BootstrapDirectoryTest:
 - testMissingDirectory
-- testReadFromConfiguration
 - testReadFromConfigurationFile
-- testReadFromConfigurationWithAncientVersion
 - testReadFromEmptyConfiguration
 org.apache.kafka.metadata.bootstrap.BootstrapMetadataTest:
 - testCopyWithModifiedFeatureRecord

@@ -30,6 +30,7 @@ org.apache.kafka.coordinator.common.runtime.CoordinatorRuntimeTest:
 - testCoordinatorExecutor
 - testEmptyBatch
 - testHighWatermarkUpdate
+- testHighWatermarkUpdateWithDeferredEventExceptions
 - testNonRetryableTimer
 - testOnNewMetadataImage
 - testPartitionLoadGeneratesSnapshotAtHighWatermark
@@ -61,7 +62,9 @@ org.apache.kafka.coordinator.common.runtime.CoordinatorRuntimeTest:
 - testScheduleTransactionalWriteOperationWithBatching
 - testScheduleUnloading
 - testScheduleUnloadingWhenContextDoesntExist
+- testScheduleUnloadingWithDeferredEventExceptions
 - testScheduleUnloadingWithEmptyEpoch
+- testScheduleUnloadingWithException
 - testScheduleUnloadingWithStalePartitionEpoch
 - testScheduleWriteAllOperation
 - testScheduleWriteOp
@@ -94,6 +97,9 @@ org.apache.kafka.coordinator.common.runtime.HdrHistogramTest:
 - testHistogramDataReset
 - testLatestHistogramRace
 - testMax
+- testRecordLimit
+org.apache.kafka.coordinator.common.runtime.KafkaMetricHistogramTest:
+- testStats
 org.apache.kafka.coordinator.common.runtime.MultiThreadedEventProcessorTest:
 - testCreateAndClose
 - testEventsAreDrainedWhenClosed

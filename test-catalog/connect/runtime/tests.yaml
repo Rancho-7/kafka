@@ -186,6 +186,10 @@ org.apache.kafka.connect.integration.InternalTopicsIntegrationTest:
 - testFailToCreateInternalTopicsWithMoreReplicasThanBrokers
 - testFailToStartWhenInternalTopicsAreNotCompacted
 - testStartWhenInternalTopicsCreatedManuallyWithCompactForBrokersDefaultCleanupPolicy
+org.apache.kafka.connect.integration.MonitorableSinkIntegrationTest:
+- testMonitorableSinkConnectorAndTask
+org.apache.kafka.connect.integration.MonitorableSourceIntegrationTest:
+- testMonitorableSourceConnectorAndTask
 org.apache.kafka.connect.integration.OffsetsApiIntegrationTest:
 - testAlterOffsetsNonExistentConnector
 - testAlterOffsetsNonStoppedConnector
@@ -262,6 +266,7 @@ org.apache.kafka.connect.runtime.AbstractHerderTest:
 - testBuildRestartPlanForConnectorAndTasks
 - testBuildRestartPlanForNoRestart
 - testBuildRestartPlanForUnknownConnector
+- testClientConfigOverridePolicyWithMetrics
 - testConfigProviderRegex
 - testConfigValidationAllOverride
 - testConfigValidationEmptyConfig
@@ -309,8 +314,12 @@ org.apache.kafka.connect.runtime.AbstractWorkerSourceTaskTest:
 - testHeaders
 - testHeadersWithCustomConverter
 - testMetricsGroup
+- testSendRecordsConversionExceptionErrorToleranceAll
+- testSendRecordsConversionExceptionErrorToleranceNone
 - testSendRecordsConvertsData
 - testSendRecordsCorruptTimestamp
+- testSendRecordsFailedTransformationErrorToleranceAll
+- testSendRecordsFailedTransformationErrorToleranceNone
 - testSendRecordsNoTimestamp
 - testSendRecordsPropagatesTimestamp
 - testSendRecordsRetriableException
@@ -325,6 +334,7 @@ org.apache.kafka.connect.runtime.AbstractWorkerSourceTaskTest:
 - testTopicCreateWhenTopicExists
 - testTopicDescribeFails
 org.apache.kafka.connect.runtime.ConnectMetricsTest:
+- testConnectorPluginMetrics
 - testDisableJmxReporter
 - testExplicitlyEnableJmxReporter
 - testGettingGroupMultipleTimes
@@ -336,6 +346,11 @@ org.apache.kafka.connect.runtime.ConnectMetricsTest:
 - testMetricReporters
 - testRecreateWithClose
 - testRecreateWithoutClose
+- testTaskPluginMetrics
+- testWrapConverter
+- testWrapHeaderConverter
+- testWrapPredicate
+- testWrapTransformation
 org.apache.kafka.connect.runtime.ConnectorConfigTest:
 - abstractKeyValueTransform
 - abstractPredicate
@@ -394,6 +409,20 @@ org.apache.kafka.connect.runtime.InternalSinkRecordTest:
 - shouldRetainOriginalTopicPartition
 - testNewRecordHeaders
 org.apache.kafka.connect.runtime.LoggersTest:
+- testAllLevelsAfterCreatingNewLogger
+- testLevelWithExistLoggerName
+- testLevelWithNewlyCreatedLogger
+- testLevelWithNonExistLoggerName
+- testLevelWithNullLoggerName
+- testLevelWithValidRootLoggerNames
+- testLookupLoggerAfterCreatingNewLogger
+- testLookupLoggerWithValidRootLoggerNames
+- testSetLevel
+- testSetLevelWithDifferentLevels
+- testSetLevelWithNullNameSpaceOrNullLevel
+- testSetLevelWithSameLevel
+- testSetLevelWithValidRootLoggerNames
+org.apache.kafka.connect.runtime.MockLoggersTest:
 - testGetLoggerFallsBackToEffectiveLogLevel
 - testGetLoggersIgnoresNullLevels
 - testGetUnknownLogger
@@ -514,9 +543,13 @@ org.apache.kafka.connect.runtime.WorkerSinkTaskTest:
 - testPreCommit
 - testPreCommitFailure
 - testPreCommitFailureAfterPartialRevocationAndAssignment
+- testRaisesFailedRetriableExceptionFromConvert
+- testRaisesFailedRetriableExceptionFromTransform
 - testRequestCommit
 - testShutdown
 - testSinkTasksHandleCloseErrors
+- testSkipsFailedRetriableExceptionFromConvert
+- testSkipsFailedRetriableExceptionFromTransform
 - testStartPaused
 - testSuppressCloseErrors
 - testTaskCancelPreventsFinalOffsetCommit
@@ -863,6 +896,10 @@ org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperatorTest:
 - testHandleExceptionInTaskPut
 - testHandleExceptionInTransformations
 - testHandleExceptionInValueConverter
+- testHandleRetriableExceptionInHeaderConverterToleranceNone
+- testHandleRetriableExceptionInKeyConverterToleranceNone
+- testHandleRetriableExceptionInTransformationsToleranceNone
+- testHandleRetriableExceptionInValueConverterToleranceNone
 - testReportWithMultipleReporters
 - testReportWithSingleReporter
 - testSetConfigs
@@ -894,6 +931,7 @@ org.apache.kafka.connect.runtime.isolation.PluginDescTest:
 - testPluginDescWithSystemClassLoader
 - testRegularPluginDesc
 org.apache.kafka.connect.runtime.isolation.PluginScannerTest:
+- testClasspathPluginIsAlsoLoadedInIsolation
 - testNonVersionedPluginHasUndefinedVersion
 - testScanningEmptyPluginPath
 - testScanningInvalidUberJar
@@ -982,6 +1020,7 @@ org.apache.kafka.connect.runtime.rest.ConnectRestServerTest:
 - testDisableAdminEndpoint
 - testIndependentAdminEndpoint
 - testLoggerEndpointWithDefaults
+- testMonitorableConnectRestExtension
 - testOptionsDoesNotIncludeWadlOutput
 - testRequestLogs
 - testStandaloneConfig
@@ -1204,6 +1243,7 @@ org.apache.kafka.connect.storage.KafkaConfigBackingStoreTest:
 - testRecordToRestartRequestOnlyFailedInconsistent
 - testRemoveConnectorConfigSlowProducer
 - testRestore
+- testRestoreCompactedDeletedConnector
 - testRestoreConnectorDeletion
 - testRestoreRestartRequestInconsistentState
 - testRestoreTargetState

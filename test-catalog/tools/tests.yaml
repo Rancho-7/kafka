@@ -123,8 +123,9 @@ org.apache.kafka.tools.FeatureCommandTest:
 - testHandleFeatureDependenciesForInvalidVersionFormat
 - testHandleFeatureDependenciesForMultipleFeatures
 - testHandleFeatureDependenciesForUnknownFeature
-- testHandleUpgrade
-- testHandleUpgradeDryRun
+- testHandleUpgradeToLowerVersion
+- testHandleUpgradeToLowerVersionDryRun
+- testHandleUpgradeToUnsupportedMetadataVersion
 - testHandleVersionMappingWithInvalidReleaseVersion
 - testHandleVersionMappingWithNoReleaseVersion
 - testHandleVersionMappingWithValidReleaseVersion
@@ -348,6 +349,12 @@ org.apache.kafka.tools.ResetIntegrationWithSslTest:
 - testReprocessingFromScratchAfterResetWithIntermediateUserTopic
 - testReprocessingFromScratchAfterResetWithoutIntermediateUserTopic
 - testResetWhenInternalTopicsAreSpecified
+org.apache.kafka.tools.ShareConsumerPerformanceTest:
+- testClientIdOverride
+- testConfigBootStrapServer
+- testConfigWithUnrecognizedOption
+- testDefaultClientId
+- testHeaderMatchBody
 org.apache.kafka.tools.StreamsResetterTest:
 - shouldDeleteTopic
 - shouldDetermineInternalTopicBasedOnTopicName1
@@ -619,8 +626,14 @@ org.apache.kafka.tools.consumer.group.SaslClientsWithInvalidCredentialsTest:
 - testConsumerGroupServiceWithAuthenticationFailure
 - testConsumerGroupServiceWithAuthenticationSuccess
 org.apache.kafka.tools.consumer.group.ShareGroupCommandTest:
-- testDescribeShareGroups
-- testDescribeShareGroupsGetOffsets
+- testDescribeMembersOfAllExistingGroups
+- testDescribeMembersOfExistingGroup
+- testDescribeNonexistentGroup
+- testDescribeOffsetsOfAllExistingGroups
+- testDescribeOffsetsOfExistingGroup
+- testDescribeOffsetsOfExistingGroupWithNulls
+- testDescribeStateOfExistingGroup
+- testDescribeStatesOfAllExistingGroups
 - testGroupStatesFromString
 - testListShareGroups
 - testListShareGroupsWithStates
@@ -672,8 +685,6 @@ org.apache.kafka.tools.reassign.ReassignPartitionsCommandTest:
 - testLogDirReassignment
 - testProduceAndConsumeWithReassignmentInProgress
 - testReassignment
-- testReassignmentCompletionDuringPartialUpgrade
-- testReassignmentWithAlterPartitionDisabled
 - testThrottledReassignment
 org.apache.kafka.tools.reassign.ReassignPartitionsUnitTest:
 - testAlterReplicaLogDirs

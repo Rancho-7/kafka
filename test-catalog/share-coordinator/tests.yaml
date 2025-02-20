@@ -10,6 +10,7 @@ org.apache.kafka.coordinator.share.ShareCoordinatorOffsetsManagerTest:
 - testUpdateStateRedundantState
 org.apache.kafka.coordinator.share.ShareCoordinatorRecordHelpersTest:
 - testNewShareSnapshotRecord
+- testNewShareStateTombstoneRecord
 - testNewShareUpdateRecord
 org.apache.kafka.coordinator.share.ShareCoordinatorRecordSerdeTest:
 - testDeserialize
@@ -24,11 +25,19 @@ org.apache.kafka.coordinator.share.ShareCoordinatorRecordSerdeTest:
 - testSerializeNullValue
 - testSerializeValue
 org.apache.kafka.coordinator.share.ShareCoordinatorServiceTest:
+- testDeleteFutureReturnsError
+- testDeleteStateSuccess
+- testDeleteStateValidationsError
+- testDeleteStateWhenNotStarted
 - testPartitionFor
 - testReadFutureReturnsError
 - testReadStateSuccess
+- testReadStateSummarySuccess
+- testReadStateSummaryValidationsError
+- testReadStateSummaryWhenNotStarted
 - testReadStateValidationsError
 - testReadStateWhenNotStarted
+- testReadSummaryFutureReturnsError
 - testRecordPruningTaskEmptyOffsetReturned
 - testRecordPruningTaskException
 - testRecordPruningTaskPeriodicityWithAllSuccess
@@ -36,6 +45,7 @@ org.apache.kafka.coordinator.share.ShareCoordinatorServiceTest:
 - testRecordPruningTaskRepeatedSameOffsetForTopic
 - testRecordPruningTaskRetriesRepeatedSameOffsetForTopic
 - testRecordPruningTaskSuccess
+- testShareStateTopicConfigs
 - testStartupShutdown
 - testTopicPartitionFor
 - testWriteFutureReturnsError
@@ -43,6 +53,12 @@ org.apache.kafka.coordinator.share.ShareCoordinatorServiceTest:
 - testWriteStateValidationsError
 - testWriteStateWhenNotStarted
 org.apache.kafka.coordinator.share.ShareCoordinatorShardTest:
+- testDeleteNullMetadataImage
+- testDeletePartitionIdNonExistentInMetadataImage
+- testDeleteStateFirstRecordDeleteSuccess
+- testDeleteStateInvalidRequestData
+- testDeleteStateSuccess
+- testDeleteTopicIdNonExistentInMetadataImage
 - testLastRedundantOffset
 - testNonSequentialBatchUpdates
 - testReadNullMetadataImage
@@ -51,6 +67,8 @@ org.apache.kafka.coordinator.share.ShareCoordinatorShardTest:
 - testReadStateLeaderEpochUpdateNoUpdate
 - testReadStateLeaderEpochUpdateSuccess
 - testReadStateSuccess
+- testReadStateSummaryInvalidRequestData
+- testReadStateSummarySuccess
 - testReplayWithShareSnapshot
 - testSubsequentWriteStateSnapshotEpochUpdatesSuccessfully
 - testWriteNullMetadataImage
@@ -59,5 +77,6 @@ org.apache.kafka.coordinator.share.ShareCoordinatorShardTest:
 - testWriteStateInvalidRequestData
 - testWriteStateSuccess
 org.apache.kafka.coordinator.share.metrics.ShareCoordinatorMetricsTest:
-- testGlobalSensors
+- testCoordinatorGlobalSensors
 - testMetricNames
+- testShardGlobalSensors
