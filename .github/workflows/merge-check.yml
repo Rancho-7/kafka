@@ -1,3 +1,17 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: Client and Streams Tests
 
 on:
@@ -31,143 +45,134 @@ jobs:
           cache-read-only: false
           gradle-version: wrapper
 
-      - name: Run regular tests
+      - name: Run Tests
+        id: run-tests
+        continue-on-error: false
         run: |
-          # 记录总测试开始时间
-          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+          start_time=$(date +%s)
           
-          # 运行常规测试，排除隔离测试
           ./gradlew :clients:test :streams:test \
-            -PexcludeTests="**/Quarantined*" \
-            --no-scan > regular_test_output.log 2>&1 || echo "Regular tests failed"
-
-      - name: Run quarantined tests
-        run: |
-          # 只运行隔离测试
-          ./gradlew :clients:test :streams:test \
-            -PincludeTests="**/Quarantined*" \
-            -PallowQuarantinedTestFailures=true \
-            --no-scan > quarantined_test_output.log 2>&1 || echo "Quarantined tests failed"
+            --no-daemon \
+            --build-cache \
+            --continue \
+            -PtestLoggingEvents=started,passed,skipped,failed \
+            -PmaxParallelForks=2 \
+            -PmaxTestRetries=1 \
+            -PmaxTestRetryFailures=3
           
-          # 记录总测试结束时间
-          echo "DURATION=$(($(date +%s) - $START_TIME))" >> $GITHUB_ENV
-
-      - name: Generate test summary
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          
+          hours=$((duration / 3600))
+          minutes=$(( (duration % 3600) / 60 ))
+          seconds=$((duration % 60))
+          
+          if [ $hours -gt 0 ]; then
+            duration_str="${hours}h${minutes}m${seconds}s"
+          else
+            duration_str="${minutes}m${seconds}s"
+          fi
+          
+          echo "TOTAL_DURATION=$duration_str" >> $GITHUB_ENV
+          
+          if [ $? -ne 0 ]; then
+            echo "Tests failed"
+            exit 1
+          fi
+      - name: Generate Test Summary
+        if: always()
         run: |
           {
-            # 定义状态表情
-            PASSED="✅"
-            FAILED="❌"
-            SKIPPED="🙈"
-            FLAKY="⚠️"
-            QUARANTINED="😷"
+            if find . -path "*/build/test-results/test" -type d | grep -q .; then
           
-            # 计算常规测试的 Client 模块统计数据
-            CLIENT_TOTAL=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            CLIENT_FAILED=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            CLIENT_SKIPPED=$(find clients/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<skipped" {} \; | wc -l)
-            CLIENT_PASSED=$((CLIENT_TOTAL - CLIENT_FAILED - CLIENT_SKIPPED))
-
-            # 计算常规测试的 Streams 模块统计数据
-            STREAMS_TOTAL=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            STREAMS_FAILED=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            STREAMS_SKIPPED=$(find streams/build/test-results/test -name "TEST-*.xml" ! -path "*/Quarantined*" -exec grep "<skipped" {} \; | wc -l)
-            STREAMS_PASSED=$((STREAMS_TOTAL - STREAMS_FAILED - STREAMS_SKIPPED))
-
-            # 计算隔离测试统计数据
-            QUARANTINED_TOTAL=$(find . -name "TEST-*.xml" -path "**/Quarantined*" -exec grep "<testcase" {} \; | wc -l)
-            QUARANTINED_FAILED=$(find . -name "TEST-*.xml" -path "**/Quarantined*" -exec grep "<failure" {} \; | wc -l)
-            QUARANTINED_PASSED=$((QUARANTINED_TOTAL - QUARANTINED_FAILED))
-
-            # 计算总数（常规测试）
-            TOTAL_TESTS=$((CLIENT_TOTAL + STREAMS_TOTAL))
-            TOTAL_FAILED=$((CLIENT_FAILED + STREAMS_FAILED))
-            TOTAL_SKIPPED=$((CLIENT_SKIPPED + STREAMS_SKIPPED))
-            TOTAL_PASSED=$((CLIENT_PASSED + STREAMS_PASSED))
-
-            # 格式化持续时间
-            duration=$DURATION
-            hours=$((duration / 3600))
-            minutes=$(( (duration % 3600) / 60 ))
-            seconds=$((duration % 60))
-            if [ $hours -gt 0 ]; then
-              time_str="${hours}h${minutes}m${seconds}s"
-            elif [ $minutes -gt 0 ]; then
-              time_str="${minutes}m${seconds}s"
+              TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
+          
+              TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
+          
+              TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
+          
+              # Export variables to GITHUB_ENV to share between steps
+              echo "TOTAL_TESTS=${TOTAL_TESTS}" >> $GITHUB_ENV
+              echo "TOTAL_PASSED=${TOTAL_PASSED}" >> $GITHUB_ENV
+              echo "TOTAL_FAILED=${TOTAL_FAILED}" >> $GITHUB_ENV
+              echo "TOTAL_SKIPPED=${TOTAL_SKIPPED}" >> $GITHUB_ENV
+              echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
+              echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
+          
             else
-              time_str="${seconds}s"
+              echo "No test results found."
             fi
-
-            # 输出主要总结
+          } >> $GITHUB_STEP_SUMMARY
+      - name: Report Failed Tests
+        if: always()
+        run: |
+          {
             echo "# Test Summary"
             echo
-            echo "${TOTAL_TESTS} tests cases run in ${time_str}"
+            echo "## Test Results"
             echo
-            echo "${TOTAL_PASSED} ${PASSED} PASSED, ${TOTAL_FAILED} ${FAILED} FAILED, 0 ${FLAKY} FLAKY, ${TOTAL_SKIPPED} ${SKIPPED} SKIPPED, ${QUARANTINED_TOTAL} ${QUARANTINED} QUARANTINED, and 0 errors."
+            echo "${{ env.TOTAL_TESTS }} tests cases run in ${{ env.TOTAL_DURATION }}."
             echo
-            echo "Download [HTML report](JUNIT_REPORT_URL)."
-          
-            # [保持原有的详情面板代码不变...]
-          
+            echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
-            echo "## Gradle Builds"
-            echo
-            echo "| Gradle Root Project | Requested Tasks | Gradle Version | Build Outcome | Build Scan |"
-            echo "| ------------------- | --------------- | -------------- | ------------- | ---------- |"
-          
-            # 获取 Gradle 版本和构建结果
-            version=$(./gradlew --version | grep "Gradle" | cut -d' ' -f2)
-          
-            # 检查常规测试结果
-            regular_outcome="${FAILED}"
-            if tail regular_test_output.log | grep -q "BUILD SUCCESSFUL"; then
-              regular_outcome="${PASSED}"
+            if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
+              echo "<details open=\"true\">"
+              echo "<summary>Failed Tests FAILED ❌ (${{ env.TOTAL_FAILED }})</summary>"
+              echo
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
+              find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+                current_testcase=""
+                current_name=""
+                current_classname=""
+                in_failed_testcase=false
+                while IFS= read -r line; do
+                if [[ $line == *"<testcase"* ]]; then
+                  current_name=$(echo "$line" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                  raw_name=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2 | head -n1)
+                  clean_name=$(echo "$raw_name" | cut -d$'\n' -f1 | sed 's/()$//')
+                  current_classname=$(echo "$line" | sed -n 's/.*classname="\([^"]*\)".*/\1/p')
+                  module=$(echo "$current_classname" | rev | cut -d. -f1 | rev)
+                  in_failed_testcase=false
+                elif [[ $line == *"<failure"* ]]; then
+                  in_failed_testcase=true
+                  printf "| %s | %s |\n" "$module" "$clean_name"
+                fi
+                done < "$file"
+              done
+              echo "</details>"
             fi
-          
-            # 检查隔离测试结果
-            quarantined_outcome="${FAILED}"
-            if tail quarantined_test_output.log | grep -q "BUILD SUCCESSFUL"; then
-              quarantined_outcome="${PASSED}"
+            if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
+              echo "<details>"
+              echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
+              echo
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
+              while IFS= read -r file; do
+                classname=$(basename "$file" .java)
+                echo "| ${classname} | @Quarantined |"
+              done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
+              echo "</details>"
             fi
-          
-            echo "| kafka | :clients:test :streams:test (Regular) | ${version} | ${regular_outcome} | Not published |"
-            echo "| kafka | :clients:test :streams:test (Quarantined) | ${version} | ${quarantined_outcome} | Not published |"
-          
           } >> $GITHUB_STEP_SUMMARY
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v3
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          detailed_summary: true
+          job_summary: true
 
-      - name: Upload test results
+      - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-java${{ matrix.java }}
           path: |
-            clients/build/reports/tests/
-            streams/build/reports/tests/
+            **/build/reports/tests/
+            **/build/test-results/
           compression-level: 9
           if-no-files-found: ignore
-
-      - name: Parse test results
-        if: always()
-        run: |
-          echo "# Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "## Client Module Tests" >> $GITHUB_STEP_SUMMARY
-          if [ -f clients/build/test-results/test/TEST-*.xml ]; then
-            echo "### Results:" >> $GITHUB_STEP_SUMMARY
-            total=$(grep -c "<testcase" clients/build/test-results/test/TEST-*.xml || true)
-            failures=$(grep -c "<failure" clients/build/test-results/test/TEST-*.xml || true)
-            skipped=$(grep -c "<skipped" clients/build/test-results/test/TEST-*.xml || true)
-            echo "- Total tests: $total" >> $GITHUB_STEP_SUMMARY
-            echo "- Failures: $failures" >> $GITHUB_STEP_SUMMARY
-            echo "- Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "## Streams Module Tests" >> $GITHUB_STEP_SUMMARY
-          if [ -f streams/build/test-results/test/TEST-*.xml ]; then
-            echo "### Results:" >> $GITHUB_STEP_SUMMARY
-            total=$(grep -c "<testcase" streams/build/test-results/test/TEST-*.xml || true)
-            failures=$(grep -c "<failure" streams/build/test-results/test/TEST-*.xml || true)
-            skipped=$(grep -c "<skipped" streams/build/test-results/test/TEST-*.xml || true)
-            echo "- Total tests: $total" >> $GITHUB_STEP_SUMMARY
-            echo "- Failures: $failures" >> $GITHUB_STEP_SUMMARY
-            echo "- Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
-          fi
