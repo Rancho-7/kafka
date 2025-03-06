@@ -40,10 +40,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: ./.github/actions/setup-gradle
         with:
-          cache-read-only: false
-          gradle-version: wrapper
+          java-version: ${{ matrix.java }}
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
       - name: Run Tests
         id: run-tests
