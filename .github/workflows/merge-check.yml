@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
-          distribution: 'temurin'
+          distribution: temurin
 
       - name: Setup Gradle
         uses: ./.github/actions/setup-gradle
@@ -85,22 +85,22 @@ jobs:
           {
             if find . -path "*/build/test-results/test" -type d | grep -q .; then
           
-              TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
-          
               TOTAL_TESTS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<testcase" {} \; | awk '{sum += $1} END {print sum}')
               TOTAL_FAILED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<failure" {} \; | awk '{sum += $1} END {print sum}')
               TOTAL_SKIPPED=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<skipped" {} \; | awk '{sum += $1} END {print sum}')
               TOTAL_ERRORS=$(find . -path "*/build/test-results/test/TEST-*.xml" -type f -exec grep -c "<error" {} \; | awk '{sum += $1} END {print sum}')
+              TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
+              TOTAL_FLAKY=$(find . -type f -name "*.java" -exec grep -l "@Flaky" {} \; | wc -l)
           
               TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED))
           
-              # Export variables to GITHUB_ENV to share between steps
               echo "TOTAL_TESTS=${TOTAL_TESTS}" >> $GITHUB_ENV
               echo "TOTAL_PASSED=${TOTAL_PASSED}" >> $GITHUB_ENV
               echo "TOTAL_FAILED=${TOTAL_FAILED}" >> $GITHUB_ENV
               echo "TOTAL_SKIPPED=${TOTAL_SKIPPED}" >> $GITHUB_ENV
               echo "TOTAL_QUARANTINED=${TOTAL_QUARANTINED}" >> $GITHUB_ENV
               echo "TOTAL_ERRORS=${TOTAL_ERRORS}" >> $GITHUB_ENV
+              echo "TOTAL_FLAKY=${TOTAL_FLAKY}" >> $GITHUB_ENV
           
             else
               echo "No test results found."
@@ -116,7 +116,7 @@ jobs:
             echo
             echo "${{ env.TOTAL_TESTS }} tests cases run in ${{ env.TOTAL_DURATION }}."
             echo
-            echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, 0 FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
+            echo "${{ env.TOTAL_PASSED }} PASSED ✅, ${{ env.TOTAL_FAILED }} FAILED ❌, ${{ env.TOTAL_FLAKY }} FLAKY ⚠️, ${{ env.TOTAL_SKIPPED }} SKIPPED 🙈, ${{ env.TOTAL_QUARANTINED }} QUARANTINED 😷, and ${{ env.TOTAL_ERRORS }} errors."
             echo
             if [ "${{ env.TOTAL_FAILED }}" -gt 0 ]; then
               echo "<details open=\"true\">"
@@ -145,6 +145,41 @@ jobs:
               done
               echo "</details>"
             fi
+
+            if [ -n "${{ env.TOTAL_FLAKY }}" ] && [ "${{ env.TOTAL_FLAKY }}" -gt 0 ]; then
+              echo "<details>"
+              echo "<summary>Flaky Tests ⚠️ (${{ env.TOTAL_FLAKY }})</summary>"
+              echo
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
+              while IFS= read -r file; do
+                classname=$(basename "$file" .java)
+                module=$(dirname "$file" | rev | cut -d'/' -f2 | rev)
+                echo "| ${module} | ${classname} |"
+              done < <(find . -name "*.java" -type f -exec grep -l "@Flaky" {} \;)
+              echo "</details>"
+            fi
+          
+            if [ "${{ env.TOTAL_SKIPPED }}" -gt 0 ]; then
+              echo "<details>"
+              echo "<summary>Skipped Tests 🙈 (${{ env.TOTAL_SKIPPED }})</summary>"
+              echo
+              echo "| Module | Test |"
+              echo "| ------ | ---- |"
+              find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
+                while IFS= read -r line || [ -n "$line" ]; do
+                  if [[ $line == *"<testcase"* ]]; then
+                    current_test=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2)
+                    current_class=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
+                    module=$(echo "$current_class" | rev | cut -d. -f1 | rev)
+                  elif [[ $line == *"<skipped"* ]]; then
+                    printf "| %s | %s |\n" "$module" "$current_test"
+                  fi
+                done < "$file"
+              done
+              echo "</details>"
+            fi
+
             if [ "${{ env.TOTAL_QUARANTINED }}" -gt 0 ]; then
               echo "<details>"
               echo "<summary>Quarantined Tests 😷 (${{ env.TOTAL_QUARANTINED }})</summary>"
@@ -157,6 +192,7 @@ jobs:
               done < <(find . -name "*.java" -type f -exec grep -l "@Quarantined" {} \;)
               echo "</details>"
             fi
+
           } >> $GITHUB_STEP_SUMMARY
       - name: Publish Test Report
         if: always()
