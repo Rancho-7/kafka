@@ -107,7 +107,12 @@ jobs:
                   if [[ $line == *"<testsuite"* ]]; then
                     # Process previous suite's results for flaky tests
                     if [ ! -z "$suite_passed" ] && [ ! -z "$suite_failed" ]; then
-                      comm -12 <(echo -e "$suite_passed" | sort) <(echo -e "$suite_failed" | sort) >> /tmp/flaky_tests.txt
+                      comm -12 <(echo -e "$suite_passed" | sort -u) <(echo -e "$suite_failed" | sort -u) | while read -r test_key; do
+                        class=$(echo "$test_key" | cut -d'#' -f1)
+                        name=$(echo "$test_key" | cut -d'#' -f2)
+                        module=$(echo "$class" | rev | cut -d'.' -f1 | rev)
+                        echo "${module}|${name}" >> /tmp/flaky_tests.txt
+                      done
                     fi
                     suite_passed=""
                     suite_failed=""
@@ -120,12 +125,12 @@ jobs:
                     # Read until we find </testcase>, <failure>, or <skipped>
                     while IFS= read -r subline; do
                       if [[ $subline == *"<failure"* ]]; then
-                        # Store failed test
+                        # Store failed test with normalized module name
                         echo "${current_module}|${current_test}" >> /tmp/failed_tests.txt
                         suite_failed="${suite_failed}${test_key}\n"
                         break
                       elif [[ $subline == *"<skipped"* ]]; then
-                        # Store skipped test
+                        # Store skipped test with normalized module name
                         echo "${current_module}|${current_test}" >> /tmp/skipped_tests.txt
                         break
                       elif [[ $subline == *"</testcase>"* ]]; then
@@ -138,12 +143,22 @@ jobs:
                 
                 # Process the last suite in the file for flaky tests
                 if [ ! -z "$suite_passed" ] && [ ! -z "$suite_failed" ]; then
-                  comm -12 <(echo -e "$suite_passed" | sort) <(echo -e "$suite_failed" | sort) >> /tmp/flaky_tests.txt
+                  comm -12 <(echo -e "$suite_passed" | sort -u) <(echo -e "$suite_failed" | sort -u) | while read -r test_key; do
+                    class=$(echo "$test_key" | cut -d'#' -f1)
+                    name=$(echo "$test_key" | cut -d'#' -f2)
+                    module=$(echo "$class" | rev | cut -d'.' -f1 | rev)
+                    echo "${module}|${name}" >> /tmp/flaky_tests.txt
+                  done
                 fi
               done
               
-              # Count unique tests
+              # Count unique tests and ensure no duplicates
               TOTAL_FLAKY=$(sort -u /tmp/flaky_tests.txt | wc -l)
+              
+              # Remove any empty lines and duplicates from the result files
+              sort -u /tmp/failed_tests.txt | grep -v '^$' > /tmp/failed_tests.txt.tmp && mv /tmp/failed_tests.txt.tmp /tmp/failed_tests.txt
+              sort -u /tmp/flaky_tests.txt | grep -v '^$' > /tmp/flaky_tests.txt.tmp && mv /tmp/flaky_tests.txt.tmp /tmp/flaky_tests.txt
+              sort -u /tmp/skipped_tests.txt | grep -v '^$' > /tmp/skipped_tests.txt.tmp && mv /tmp/skipped_tests.txt.tmp /tmp/skipped_tests.txt
               
               TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_ERRORS))
           
@@ -195,7 +210,9 @@ jobs:
               echo "| Module | Test |"
               echo "| ------ | ---- |"
               sort -u /tmp/failed_tests.txt | while IFS='|' read -r module test; do
-                echo "| $module | $test |"
+                if [ ! -z "$module" ] && [ ! -z "$test" ]; then
+                  echo "| $module | $test |"
+                fi
               done
               echo "</details>"
             fi
@@ -206,11 +223,10 @@ jobs:
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
-              sort -u /tmp/flaky_tests.txt | while read -r test_key; do
-                class=$(echo "$test_key" | cut -d'#' -f1)
-                name=$(echo "$test_key" | cut -d'#' -f2)
-                module=$(echo "$class" | rev | cut -d'.' -f1 | rev)
-                echo "| $module | $name |"
+              sort -u /tmp/flaky_tests.txt | while IFS='|' read -r module test; do
+                if [ ! -z "$module" ] && [ ! -z "$test" ]; then
+                  echo "| $module | $test |"
+                fi
               done
               echo "</details>"
             fi
@@ -222,7 +238,9 @@ jobs:
               echo "| Module | Test |"
               echo "| ------ | ---- |"
               sort -u /tmp/skipped_tests.txt | while IFS='|' read -r module test; do
-                echo "| $module | $test |"
+                if [ ! -z "$module" ] && [ ! -z "$test" ]; then
+                  echo "| $module | $test |"
+                fi
               done
               echo "</details>"
             fi
