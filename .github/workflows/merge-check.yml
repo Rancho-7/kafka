@@ -265,17 +265,22 @@ jobs:
               echo
               echo "| Module | Test |"
               echo "| ------ | ---- |"
+              # Create a temporary file to store normalized skipped tests
+              echo "" > /tmp/skipped_tests.txt
+              
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
                 while IFS= read -r line; do
                   if [[ $line == *"<testcase"* ]]; then
                     current_test=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2)
                     current_class=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
                     current_module=$(echo "$current_class" | rev | cut -d'.' -f1 | rev)
-                    # 读取直到找到 </testcase> 或 <skipped>
+                    
+                    # Read until we find </testcase> or <skipped>
                     while IFS= read -r subline; do
                       if [[ $subline == *"<skipped"* ]]; then
                         if [ ! -z "$current_test" ] && [ ! -z "$current_module" ]; then
-                          echo "| $current_module | $current_test |"
+                          # Store normalized test info in temporary file
+                          echo "${current_module}|${current_test}" >> /tmp/skipped_tests.txt
                         fi
                         break
                       elif [[ $subline == *"</testcase>"* ]]; then
@@ -284,7 +289,16 @@ jobs:
                     done
                   fi
                 done < "$file"
-              done | sort -u
+              done
+              
+              # Output unique skipped tests
+              sort -u /tmp/skipped_tests.txt | while IFS='|' read -r module test; do
+                echo "| $module | $test |"
+              done
+              
+              # Cleanup
+              rm /tmp/skipped_tests.txt
+              
               echo "</details>"
             fi
 
