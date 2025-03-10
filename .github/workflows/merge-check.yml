@@ -167,16 +167,20 @@ jobs:
               echo "| Module | Test |"
               echo "| ------ | ---- |"
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
-                while IFS= read -r line || [ -n "$line" ]; do
-                  if [[ $line == *"<testcase"* ]]; then
+                current_test=""
+                current_class=""
+                module=""
+                while IFS= read -r line; do
+                  if [[ $line == *"<testcase"* ]] && [[ $line == *"<skipped"* || $(head -n1 <(tail -n+2)) == *"<skipped"* ]]; then
                     current_test=$(echo "$line" | grep -o 'name="[^"]*"' | cut -d'"' -f2)
                     current_class=$(echo "$line" | grep -o 'classname="[^"]*"' | cut -d'"' -f2)
-                    module=$(echo "$current_class" | rev | cut -d. -f1 | rev)
-                  elif [[ $line == *"<skipped"* ]]; then
-                    printf "| %s | %s |\n" "$module" "$current_test"
+                    module=$(echo "$current_class" | rev | cut -d'.' -f1 | rev)
+                    if [ ! -z "$current_test" ] && [ ! -z "$module" ]; then
+                      printf "| %s | %s |\n" "$module" "$current_test"
+                    fi
                   fi
                 done < "$file"
-              done
+              done | sort -u
               echo "</details>"
             fi
 
@@ -194,13 +198,6 @@ jobs:
             fi
 
           } >> $GITHUB_STEP_SUMMARY
-      - name: Publish Test Report
-        if: always()
-        uses: mikepenz/action-junit-report@v3
-        with:
-          report_paths: '**/build/test-results/test/TEST-*.xml'
-          detailed_summary: true
-          job_summary: true
 
       - name: Upload Test Results
         if: always()
