@@ -59,7 +59,8 @@ jobs:
             -PmaxParallelForks=2 \
             -PmaxTestRetries=1 \
             -PmaxTestRetryFailures=3 \
-            -Dcompiler.args="-Xlint:-overloads"
+            -Porg.gradle.jvmargs="-Xmx2g" \
+            -Pcompiler.args="-Xlint:-overloads -Werror:-overloads"
           
           end_time=$(date +%s)
           duration=$((end_time - start_time))
