@@ -51,7 +51,7 @@ jobs:
         run: |
           start_time=$(date +%s)
           
-          JAVA_TOOL_OPTIONS="-Xlint:-overloads" ./gradlew :clients:test :streams:test \
+          ./gradlew :clients:test :streams:test \
             --no-daemon \
             --build-cache \
             --continue \
@@ -59,8 +59,9 @@ jobs:
             -PmaxParallelForks=2 \
             -PmaxTestRetries=1 \
             -PmaxTestRetryFailures=3 \
-            -Dcompiler.options.compilerArgs="-Xlint:-overloads" \
-            -Dcompiler.options.failOnWarning=false
+            -Dorg.gradle.jvmargs="-Xmx2g" \
+            -Pcompiler.options.forkOptions.jvmArgs="-Xlint:none" \
+            -Pcompiler.warning.mode=none
           
           end_time=$(date +%s)
           duration=$((end_time - start_time))
