@@ -58,7 +58,8 @@ jobs:
             -PtestLoggingEvents=started,passed,skipped,failed \
             -PmaxParallelForks=2 \
             -PmaxTestRetries=1 \
-            -PmaxTestRetryFailures=3
+            -PmaxTestRetryFailures=3 \
+            -Dcompiler.args="-Xlint:-overloads"
           
           end_time=$(date +%s)
           duration=$((end_time - start_time))
