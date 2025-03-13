@@ -55,14 +55,18 @@ jobs:
             --no-daemon \
             --build-cache \
             --continue \
+            --no-scan \
             -PtestLoggingEvents=started,passed,skipped,failed \
-            -PmaxParallelForks=2 \
+            -PmaxParallelForks=4 \
             -PmaxTestRetries=1 \
             -PmaxTestRetryFailures=3 \
             -Dorg.gradle.jvmargs="-Xmx2g" \
             -Pcompiler.options.forkOptions.jvmArgs="-Xlint:none" \
             -Pcompiler.warning.mode=none \
-            -PallowWarnings=true
+            -Pcompiler.args="-nowarn" \
+            -Pcompiler.options.compilerArgs="-nowarn" \
+            -Pcompiler.options.forkOptions.compilerArgs="-nowarn" \
+            -Pkafka.test.verbose=true
           
           end_time=$(date +%s)
           duration=$((end_time - start_time))
