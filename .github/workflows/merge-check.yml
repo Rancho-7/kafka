@@ -96,12 +96,9 @@ jobs:
               TOTAL_QUARANTINED=$(find . -type f \( -name "*.java" -o -name "TEST-*.xml" \) -exec grep -l "@Quarantined\|org.apache.kafka.test.Quarantined" {} \; | wc -l)
               
               # Create temporary files to store test results
-              echo "" > /tmp/failed_tests.txt
-              echo "" > /tmp/passed_tests.txt
-              echo "" > /tmp/flaky_tests.txt
-              echo "" > /tmp/skipped_tests.txt
+              touch /tmp/failed_tests.txt /tmp/passed_tests.txt /tmp/flaky_tests.txt /tmp/skipped_tests.txt
               
-              # Collect all test results
+              # Collect all test results in one pass
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
                 while IFS= read -r line; do
                   if [[ $line == *"<testcase"* ]]; then
@@ -145,14 +142,9 @@ jobs:
               comm -23 /tmp/failed_tests.txt.sorted /tmp/flaky_tests.txt > /tmp/failed_tests.txt.final
               mv /tmp/failed_tests.txt.final /tmp/failed_tests.txt
               
-              # Count unique tests and ensure no duplicates
-              TOTAL_FLAKY=$(sort -u /tmp/flaky_tests.txt | grep -v '^$' | wc -l)
-              TOTAL_FAILED=$(sort -u /tmp/failed_tests.txt | grep -v '^$' | wc -l)
-              
-              # Remove any empty lines from the result files
-              grep -v '^$' /tmp/failed_tests.txt > /tmp/failed_tests.txt.tmp && mv /tmp/failed_tests.txt.tmp /tmp/failed_tests.txt
-              grep -v '^$' /tmp/flaky_tests.txt > /tmp/flaky_tests.txt.tmp && mv /tmp/flaky_tests.txt.tmp /tmp/flaky_tests.txt
-              grep -v '^$' /tmp/skipped_tests.txt > /tmp/skipped_tests.txt.tmp && mv /tmp/skipped_tests.txt.tmp /tmp/skipped_tests.txt
+              # Count unique tests
+              TOTAL_FLAKY=$(sort -u /tmp/flaky_tests.txt | wc -l)
+              TOTAL_FAILED=$(sort -u /tmp/failed_tests.txt | wc -l)
               
               TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILED - TOTAL_SKIPPED - TOTAL_ERRORS))
           
