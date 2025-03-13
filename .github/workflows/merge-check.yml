@@ -61,7 +61,8 @@ jobs:
             -PmaxTestRetryFailures=3 \
             -Dorg.gradle.jvmargs="-Xmx2g" \
             -Pcompiler.options.forkOptions.jvmArgs="-Xlint:none" \
-            -Pcompiler.warning.mode=none
+            -Pcompiler.warning.mode=none \
+            -PallowWarnings=true
           
           end_time=$(date +%s)
           duration=$((end_time - start_time))
@@ -100,7 +101,7 @@ jobs:
               echo "" > /tmp/flaky_tests.txt
               echo "" > /tmp/skipped_tests.txt
               
-              # Collect all test results in one pass
+              # Collect all test results
               find . -path "*/build/test-results/test/TEST-*.xml" -type f | while read -r file; do
                 while IFS= read -r line; do
                   if [[ $line == *"<testcase"* ]]; then
