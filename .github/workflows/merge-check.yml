@@ -61,7 +61,7 @@ jobs:
             -PmaxTestRetries=1 \
             -PmaxTestRetryFailures=3 \
             -Pcompiler.warning.mode=none \
-            -Pcompiler.options.compilerArgs="-nowarn -Xlint:-overloads" \
+            -PcompileJava.options.compilerArgs="-nowarn -Xlint:-overloads" \
             -Pkafka.test.verbose=true
           
           end_time=$(date +%s)
