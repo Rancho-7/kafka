@@ -60,12 +60,8 @@ jobs:
             -PmaxParallelForks=4 \
             -PmaxTestRetries=1 \
             -PmaxTestRetryFailures=3 \
-            -Dorg.gradle.jvmargs="-Xmx2g" \
-            -Pcompiler.options.forkOptions.jvmArgs="-Xlint:none" \
             -Pcompiler.warning.mode=none \
-            -Pcompiler.args="-nowarn -Xlint:-overloads" \
             -Pcompiler.options.compilerArgs="-nowarn -Xlint:-overloads" \
-            -Pcompiler.options.forkOptions.compilerArgs="-nowarn -Xlint:-overloads" \
             -Pkafka.test.verbose=true
           
           end_time=$(date +%s)
