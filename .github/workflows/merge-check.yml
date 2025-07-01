@@ -56,9 +56,6 @@ jobs:
             --build-cache \
             --continue \
             --no-scan \
-            -x :generator:compileJava \
-            -x :generator:classes \
-            -x :generator:jar \
             -PtestLoggingEvents=started,passed,skipped,failed \
             -PmaxParallelForks=4 \
             -PmaxTestRetries=1 \
