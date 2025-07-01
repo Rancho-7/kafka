@@ -27,6 +27,9 @@ import org.apache.kafka.coordinator.group.api.assignor.SubscribedTopicDescriber;
 import org.apache.kafka.coordinator.group.modern.MemberAssignmentImpl;
 import org.apache.kafka.server.common.TopicIdPartition;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,54 +43,54 @@ import java.util.Set;
 import static org.apache.kafka.coordinator.group.api.assignor.SubscriptionType.HOMOGENEOUS;
 
 /**
- * A simple partition assignor that assigns partitions of the subscribed topics based on the rules defined in KIP-932 to different members.
+ * A simple partition assignor for share groups that assigns partitions of the subscribed topics
+ * to different members based on the rules defined in KIP-932. It is not rack-aware.
+ * <p>
+ * Assignments are done according to the following principles:
+ * <ol>
+ *   <li>Balance:          Ensure partitions are distributed equally among all members.
+ *                         The difference in assignments sizes between any two members
+ *                         should not exceed one partition.</li>
+ *   <li>Stickiness:       Minimize partition movements among members by retaining
+ *                         as much of the existing assignment as possible.</li>
+ * </ol>
+ * <p>
+ * Balance is prioritized above stickiness.
  */
 public class SimpleAssignor implements ShareGroupPartitionAssignor {
-
+    private static final Logger log = LoggerFactory.getLogger(SimpleAssignor.class);
     private static final String SIMPLE_ASSIGNOR_NAME = "simple";
 
+    /**
+     * Unique name for this assignor.
+     */
     @Override
     public String name() {
         return SIMPLE_ASSIGNOR_NAME;
     }
 
+    /**
+     * Assigns partitions to group members based on the given assignment specification and topic metadata.
+     *
+     * @param groupSpec                The assignment spec which includes member metadata.
+     * @param subscribedTopicDescriber The topic and partition metadata describer.
+     * @return The new assignment for the group.
+     */
     @Override
-    public GroupAssignment assign(
-        GroupSpec groupSpec,
-        SubscribedTopicDescriber subscribedTopicDescriber
-    ) throws PartitionAssignorException {
+    public GroupAssignment assign(GroupSpec groupSpec, SubscribedTopicDescriber subscribedTopicDescriber) throws PartitionAssignorException {
         if (groupSpec.memberIds().isEmpty())
             return new GroupAssignment(Map.of());
 
         if (groupSpec.subscriptionType().equals(HOMOGENEOUS)) {
-            return assignHomogenous(groupSpec, subscribedTopicDescriber);
+            log.debug("Detected that all members are subscribed to the same set of topics, invoking the homogeneous assignment algorithm");
+            return new SimpleHomogeneousAssignmentBuilder(groupSpec, subscribedTopicDescriber).build();
         } else {
+            log.debug("Detected that the members are subscribed to different sets of topics, invoking the heterogeneous assignment algorithm");
             return assignHeterogeneous(groupSpec, subscribedTopicDescriber);
         }
     }
 
-    private GroupAssignment assignHomogenous(
-        GroupSpec groupSpec,
-        SubscribedTopicDescriber subscribedTopicDescriber
-    ) {
-        Set<Uuid> subscribedTopicIds = groupSpec.memberSubscription(groupSpec.memberIds().iterator().next())
-            .subscribedTopicIds();
-        if (subscribedTopicIds.isEmpty())
-            return new GroupAssignment(Map.of());
-
-        // Subscribed topic partitions for the share group.
-        List<TopicIdPartition> targetPartitions = computeTargetPartitions(
-            subscribedTopicIds, subscribedTopicDescriber);
-
-        // The current assignment from topic partition to members.
-        Map<TopicIdPartition, List<String>> currentAssignment = currentAssignment(groupSpec);
-        return newAssignmentHomogeneous(groupSpec, subscribedTopicIds, targetPartitions, currentAssignment);
-    }
-
-    private GroupAssignment assignHeterogeneous(
-        GroupSpec groupSpec,
-        SubscribedTopicDescriber subscribedTopicDescriber
-    ) {
+    private GroupAssignment assignHeterogeneous(GroupSpec groupSpec, SubscribedTopicDescriber subscribedTopicDescriber) {
         Map<String, List<TopicIdPartition>> memberToPartitionsSubscription = new HashMap<>();
         for (String memberId : groupSpec.memberIds()) {
             MemberSubscription spec = groupSpec.memberSubscription(memberId);
@@ -95,22 +98,23 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
                 continue;
 
             // Subscribed topic partitions for the share group member.
-            List<TopicIdPartition> targetPartitions = computeTargetPartitions(
-                spec.subscribedTopicIds(), subscribedTopicDescriber);
+            List<TopicIdPartition> targetPartitions = AssignorHelpers.computeTargetPartitions(groupSpec, spec.subscribedTopicIds(), subscribedTopicDescriber);
             memberToPartitionsSubscription.put(memberId, targetPartitions);
         }
 
         // The current assignment from topic partition to members.
         Map<TopicIdPartition, List<String>> currentAssignment = currentAssignment(groupSpec);
+
         return newAssignmentHeterogeneous(groupSpec, memberToPartitionsSubscription, currentAssignment);
     }
 
     /**
      * Get the current assignment by topic partitions.
-     * @param groupSpec - The group metadata specifications.
+     *
+     * @param groupSpec The group metadata specifications.
      * @return the current assignment for subscribed topic partitions to memberIds.
      */
-    private Map<TopicIdPartition, List<String>> currentAssignment(GroupSpec groupSpec) {
+    static Map<TopicIdPartition, List<String>> currentAssignment(GroupSpec groupSpec) {
         Map<TopicIdPartition, List<String>> assignment = new HashMap<>();
 
         for (String member : groupSpec.memberIds()) {
@@ -118,66 +122,16 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
             assignedTopicPartitions.forEach((topicId, partitions) -> partitions.forEach(
                 partition -> assignment.computeIfAbsent(new TopicIdPartition(topicId, partition), k -> new ArrayList<>()).add(member)));
         }
+
         return assignment;
     }
 
     /**
-     * This function computes the new assignment for a homogeneous group.
-     * @param groupSpec - The group metadata specifications.
-     * @param subscribedTopicIds - The set of all the subscribed topic ids for the group.
-     * @param targetPartitions - The list of all topic partitions that need assignment.
-     * @param currentAssignment - The current assignment for subscribed topic partitions to memberIds.
-     * @return the new partition assignment for the members of the group.
-     */
-    private GroupAssignment newAssignmentHomogeneous(
-        GroupSpec groupSpec,
-        Set<Uuid> subscribedTopicIds,
-        List<TopicIdPartition> targetPartitions,
-        Map<TopicIdPartition, List<String>> currentAssignment
-    ) {
-        Map<TopicIdPartition, List<String>> newAssignment = new HashMap<>();
-
-        // Step 1: Hash member IDs to topic partitions.
-        memberHashAssignment(targetPartitions, groupSpec.memberIds(), newAssignment);
-
-        // Step 2: Round-robin assignment for unassigned partitions which do not have members already assigned in the current assignment.
-        List<TopicIdPartition> unassignedPartitions = targetPartitions.stream()
-            .filter(targetPartition -> !newAssignment.containsKey(targetPartition))
-            .filter(targetPartition -> !currentAssignment.containsKey(targetPartition))
-            .toList();
-
-        roundRobinAssignment(groupSpec.memberIds(), unassignedPartitions, newAssignment);
-
-        // Step 3: We combine current assignment and new assignment.
-        Map<String, Set<TopicIdPartition>> finalAssignment = new HashMap<>();
-
-        // As per the KIP, we should revoke the assignments from current assignment for partitions that were assigned by step 1
-        // in the new assignment and have members in current assignment by step 2. But we haven't implemented it to avoid the
-        // complexity in both the implementation and the run time complexity. This step was mentioned in the KIP to reduce
-        // the burden of certain members of the share groups. This can be achieved with the help of limiting the max
-        // no. of partitions assignment for every member(KAFKA-18788). Hence, the potential problem of burdening
-        // the share consumers will be addressed in a future PR.
-
-        newAssignment.forEach((targetPartition, members) -> members.forEach(member ->
-            finalAssignment.computeIfAbsent(member, k -> new HashSet<>()).add(targetPartition)));
-        // When combining current assignment, we need to only consider the topics in current assignment that are also being
-        // subscribed in the new assignment as well.
-        currentAssignment.forEach((targetPartition, members) -> {
-            if (subscribedTopicIds.contains(targetPartition.topicId()))
-                members.forEach(member -> {
-                    if (groupSpec.memberIds().contains(member) && !newAssignment.containsKey(targetPartition))
-                        finalAssignment.computeIfAbsent(member, k -> new HashSet<>()).add(targetPartition);
-                });
-        });
-
-        return groupAssignment(finalAssignment, groupSpec.memberIds());
-    }
-
-    /**
      * This function computes the new assignment for a heterogeneous group.
-     * @param groupSpec - The group metadata specifications.
-     * @param memberToPartitionsSubscription - The member to subscribed topic partitions map.
-     * @param currentAssignment - The current assignment for subscribed topic partitions to memberIds.
+     *
+     * @param groupSpec                      The group metadata specifications.
+     * @param memberToPartitionsSubscription The member to subscribed topic partitions map.
+     * @param currentAssignment              The current assignment for subscribed topic partitions to memberIds.
      * @return the new partition assignment for the members of the group.
      */
     private GroupAssignment newAssignmentHeterogeneous(
@@ -185,6 +139,7 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
         Map<String, List<TopicIdPartition>> memberToPartitionsSubscription,
         Map<TopicIdPartition, List<String>> currentAssignment
     ) {
+        int numGroupMembers = groupSpec.memberIds().size();
 
         // Exhaustive set of all subscribed topic partitions.
         Set<TopicIdPartition> targetPartitions = new LinkedHashSet<>();
@@ -199,7 +154,7 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
 
         // Step 1: Hash member IDs to partitions.
         memberToPartitionsSubscription.forEach((member, partitions) ->
-            memberHashAssignment(partitions, List.of(member), newAssignment));
+            memberHashAssignment(List.of(member), partitions, newAssignment));
 
         // Step 2: Round-robin assignment for unassigned partitions which do not have members already assigned in the current assignment.
         Set<TopicIdPartition> assignedPartitions = new LinkedHashSet<>(newAssignment.keySet());
@@ -213,16 +168,11 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
             roundRobinAssignment(topicToMemberSubscription.get(unassignedTopic), unassignedPartitions.get(unassignedTopic), newAssignment));
 
         // Step 3: We combine current assignment and new assignment.
-        Map<String, Set<TopicIdPartition>> finalAssignment = new HashMap<>();
-        // As per the KIP, we should revoke the assignments from current assignment for partitions that were assigned by step 1
-        // in the new assignment and have members in current assignment by step 2. But we haven't implemented it to avoid the
-        // complexity in both the implementation and the run time complexity. This step was mentioned in the KIP to reduce
-        // the burden of certain members of the share groups. This can be achieved with the help of limiting the max
-        // no. of partitions assignment for every member(KAFKA-18788). Hence, the potential problem of burdening
-        // the share consumers will be addressed in a future PR.
+        Map<String, Set<TopicIdPartition>> finalAssignment = AssignorHelpers.newHashMap(numGroupMembers);
 
         newAssignment.forEach((targetPartition, members) -> members.forEach(member ->
             finalAssignment.computeIfAbsent(member, k -> new HashSet<>()).add(targetPartition)));
+
         // When combining current assignment, we need to only consider the member topic subscription in current assignment
         // which is being subscribed in the new assignment as well.
         currentAssignment.forEach((topicIdPartition, members) -> members.forEach(member -> {
@@ -234,6 +184,56 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
         return groupAssignment(finalAssignment, groupSpec.memberIds());
     }
 
+    /**
+     * This function updates assignment by hashing the member IDs of the members and maps the partitions assigned to the
+     * members based on the hash, one partition per member. This gives approximately even balance.
+     *
+     * @param memberIds          The member ids to which the topic partitions need to be assigned.
+     * @param partitionsToAssign The subscribed topic partitions which needs assignment.
+     * @param assignment         The existing assignment by topic partition. We need to pass it as a parameter because this
+     *                           method can be called multiple times for heterogeneous assignment.
+     */
+    // Visible for testing
+    void memberHashAssignment(
+        Collection<String> memberIds,
+        List<TopicIdPartition> partitionsToAssign,
+        Map<TopicIdPartition, List<String>> assignment
+    ) {
+        if (!partitionsToAssign.isEmpty()) {
+            for (String memberId : memberIds) {
+                int topicPartitionIndex = Math.abs(memberId.hashCode() % partitionsToAssign.size());
+                TopicIdPartition topicPartition = partitionsToAssign.get(topicPartitionIndex);
+                assignment.computeIfAbsent(topicPartition, k -> new ArrayList<>()).add(memberId);
+            }
+        }
+    }
+
+    /**
+     * This functions assigns topic partitions to members by a round-robin approach and updates the existing assignment.
+     *
+     * @param memberIds          The member ids to which the topic partitions need to be assigned, should be non-empty.
+     * @param partitionsToAssign The subscribed topic partitions which needs assignment.
+     * @param assignment         The existing assignment by topic partition. We need to pass it as a parameter because this
+     *                           method can be called multiple times for heterogeneous assignment.
+     */
+    // Visible for testing
+    void roundRobinAssignment(
+        Collection<String> memberIds,
+        List<TopicIdPartition> partitionsToAssign,
+        Map<TopicIdPartition, List<String>> assignment
+    ) {
+        // We iterate through the target partitions and assign a memberId to them. In case we run out of members (members < targetPartitions),
+        // we again start from the starting index of memberIds.
+        Iterator<String> memberIdIterator = memberIds.iterator();
+        for (TopicIdPartition topicPartition : partitionsToAssign) {
+            if (!memberIdIterator.hasNext()) {
+                memberIdIterator = memberIds.iterator();
+            }
+            String memberId = memberIdIterator.next();
+            assignment.computeIfAbsent(topicPartition, k -> new ArrayList<>()).add(memberId);
+        }
+    }
+
     private GroupAssignment groupAssignment(
         Map<String, Set<TopicIdPartition>> assignmentByMember,
         Collection<String> allGroupMembers
@@ -241,7 +241,8 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
         Map<String, MemberAssignment> members = new HashMap<>();
         for (Map.Entry<String, Set<TopicIdPartition>> entry : assignmentByMember.entrySet()) {
             Map<Uuid, Set<Integer>> targetPartitions = new HashMap<>();
-            entry.getValue().forEach(targetPartition -> targetPartitions.computeIfAbsent(targetPartition.topicId(), k -> new HashSet<>()).add(targetPartition.partitionId()));
+            entry.getValue().forEach(targetPartition ->
+                targetPartitions.computeIfAbsent(targetPartition.topicId(), k -> new HashSet<>()).add(targetPartition.partitionId()));
             members.put(entry.getKey(), new MemberAssignmentImpl(targetPartitions));
         }
         allGroupMembers.forEach(member -> {
@@ -250,72 +251,5 @@ public class SimpleAssignor implements ShareGroupPartitionAssignor {
         });
 
         return new GroupAssignment(members);
-    }
-
-    /**
-     * This function updates assignment by hashing the member IDs of the members and maps the partitions assigned to the
-     * members based on the hash. This gives approximately even balance.
-     * @param unassignedPartitions - the subscribed topic partitions which needs assignment.
-     * @param memberIds - the member ids to which the topic partitions need to be assigned.
-     * @param assignment - the existing assignment by topic partition. We need to pass it as a parameter because this
-     *                   function would be called multiple times for heterogeneous assignment.
-     */
-    // Visible for testing
-    void memberHashAssignment(
-        List<TopicIdPartition> unassignedPartitions,
-        Collection<String> memberIds,
-        Map<TopicIdPartition, List<String>> assignment
-    ) {
-        if (!unassignedPartitions.isEmpty())
-            for (String memberId : memberIds) {
-                int topicPartitionIndex = Math.abs(memberId.hashCode() % unassignedPartitions.size());
-                TopicIdPartition topicPartition = unassignedPartitions.get(topicPartitionIndex);
-                assignment.computeIfAbsent(topicPartition, k -> new ArrayList<>()).add(memberId);
-            }
-    }
-
-    /**
-     * This functions assigns topic partitions to members by round-robin approach and updates the existing assignment.
-     * @param memberIds - the member ids to which the topic partitions need to be assigned, should be non-empty.
-     * @param unassignedPartitions - the subscribed topic partitions which needs assignment.
-     * @param assignment - the existing assignment by topic partition.
-     */
-    // Visible for testing
-    void roundRobinAssignment(
-        Collection<String> memberIds,
-        List<TopicIdPartition> unassignedPartitions,
-        Map<TopicIdPartition, List<String>> assignment
-    ) {
-        // We iterate through the target partitions and assign a memberId to them. In case we run out of members (members < targetPartitions),
-        // we again start from the starting index of memberIds.
-        Iterator<String> memberIdIterator = memberIds.iterator();
-        for (TopicIdPartition targetPartition : unassignedPartitions) {
-            if (!memberIdIterator.hasNext()) {
-                memberIdIterator = memberIds.iterator();
-            }
-            String memberId = memberIdIterator.next();
-            assignment.computeIfAbsent(targetPartition, k -> new ArrayList<>()).add(memberId);
-        }
-    }
-
-    private List<TopicIdPartition> computeTargetPartitions(
-        Set<Uuid> subscribedTopicIds,
-        SubscribedTopicDescriber subscribedTopicDescriber
-    ) {
-        List<TopicIdPartition> targetPartitions = new ArrayList<>();
-        subscribedTopicIds.forEach(topicId -> {
-            int numPartitions = subscribedTopicDescriber.numPartitions(topicId);
-            if (numPartitions == -1) {
-                throw new PartitionAssignorException(
-                    "Members are subscribed to topic " + topicId
-                        + " which doesn't exist in the topic metadata."
-                );
-            }
-
-            for (int i = 0; i < numPartitions; i++) {
-                targetPartitions.add(new TopicIdPartition(topicId, i));
-            }
-        });
-        return targetPartitions;
     }
 }
