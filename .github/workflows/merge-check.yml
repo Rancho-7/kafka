@@ -54,18 +54,10 @@ jobs:
           test-repeat: 1
           test-verbose: false
 
-      - name: Parse Test Results
-        if: always()
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          GRADLE_TEST_EXIT_CODE: ${{ steps.java11-tests.outputs.gradle-exitcode }}
-        run: |
-          python .github/scripts/junit.py \
-           --path build/junit-xml >> $GITHUB_STEP_SUMMARY
-
       - name: Archive JUnit HTML reports
         if: always()
         uses: actions/upload-artifact@v4
+        id: archive-junit-html
         with:
           name: junit-reports-java11-clients-streams
           path: |
@@ -82,3 +74,14 @@ jobs:
             build/junit-xml/**/*.xml
           compression-level: 9
           if-no-files-found: ignore
+
+      - name: Parse Test Results
+        if: always()
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          JUNIT_REPORT_URL: ${{ steps.archive-junit-html.outputs.artifact-url }}
+          THREAD_DUMP_URL: ""
+          GRADLE_TEST_EXIT_CODE: ${{ steps.java11-tests.outputs.gradle-exitcode }}
+        run: |
+          python .github/scripts/junit.py \
+           --path build/junit-xml >> $GITHUB_STEP_SUMMARY
