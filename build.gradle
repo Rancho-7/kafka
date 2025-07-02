@@ -94,9 +94,9 @@ ext {
   userEnableTestCoverage = project.hasProperty("enableTestCoverage") ? enableTestCoverage : false
 
   userKeepAliveModeString = project.hasProperty("keepAliveMode") ? keepAliveMode : "daemon"
-  userKeepAliveMode = KeepAliveMode.values().find(m -> m.name().toLowerCase().equals(userKeepAliveModeString))
+  userKeepAliveMode = KeepAliveMode.values().find { it.name().toLowerCase().equals(userKeepAliveModeString) }
   if (userKeepAliveMode == null) {
-    def keepAliveValues = KeepAliveMode.values().collect(m -> m.name.toLowerCase())
+    def keepAliveValues = KeepAliveMode.values().collect { it.name().toLowerCase() }
     throw new GradleException("Unexpected value for keepAliveMode property. Expected one of $keepAliveValues, but received: $userKeepAliveModeString")
   }
 
@@ -241,8 +241,8 @@ def determineCommitId() {
  * to store the JUnit XML files in. E.g., Project ":connect:api" -> "connect-api"
  */
 static def projectToJUnitXmlPath(project) {
-  var p = project
-  var projectNames = []
+  def p = project
+  def projectNames = []
   while (p != null) {
     projectNames.push(p.name)
     p = p.parent
@@ -1769,17 +1769,24 @@ project(':examples') {
 }
 
 project(':generator') {
+  
+  java {
+    toolchain {
+      languageVersion = JavaLanguageVersion.of(17)
+    }
+  }
+  
   dependencies {
     implementation libs.argparse4j
     implementation libs.jacksonDatabind
     implementation libs.jacksonJDK8Datatypes
     implementation libs.jacksonJakartarsJsonProvider
 
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:5.13.0.202109080827-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r'
     // SSH support for JGit based on Apache MINA sshd
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:5.13.0.202109080827-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.2.0.202503040940-r'
     // GPG support for JGit based on BouncyCastle (commit signing)
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.gpg.bc:5.13.0.202109080827-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit.gpg.bc:7.2.0.202503040940-r'
 
     testImplementation libs.junitJupiter
 
