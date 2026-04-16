@@ -10,11 +10,76 @@ org.apache.kafka.deferred.DeferredEventQueueTest:
 - testFailOnIncorrectOrdering
 org.apache.kafka.metadata.AssignmentsHelperTest:
 - testBuildRequestData
+org.apache.kafka.metadata.properties.MetaPropertiesEnsembleTest:
+- testClusterIdForEmpty
+- testClusterIdForFoo
+- testCopierGenerateValidDirectoryId
+- testCopierVerificationFailsOnEmptyAndErrorOverlap
+- testCopierVerificationFailsOnEmptyAndLogDirsOverlap
+- testCopierVerificationFailsOnErrorAndLogDirsOverlap
+- testCopierWithoutModifications
+- testCopierWriteChanged
+- testCopierWriteLogDirChanges
+- testCopyFooItemByItem
+- testEmptyLogDirsForEmpty
+- testEmptyLogDirsForFoo
+- testErrorLogDirsForEmpty
+- testErrorLogDirsForFoo
+- testLogDirPropsForEmpty
+- testLogDirPropsForFoo
+- testMetaPropertiesEnsembleLoad
+- testMetaPropertiesEnsembleLoadEmpty
+- testMetaPropertiesEnsembleLoadError
+- testMetadataLogDirForEmpty
+- testMetadataLogDirForFoo
+- testNodeIdForEmpty
+- testNodeIdForFoo
+- testNonFailedDirectoryPropsForEmpty
+- testNonFailedDirectoryPropsForFoo
+- testSuccessfulVerification
+- testSuccessfulVerificationWithClusterId
+- testSuccessfulVerificationWithClusterIdAndNodeId
+- testVerificationFailureOnLackOfMetadataLogDir
+- testVerificationFailureOnMetadataLogDirWithError
+- testVerificationFailureOnRequireAtLeastOneValid
+- testVerificationFailureOnRequireV0
+org.apache.kafka.metadata.properties.MetaPropertiesTest:
+- testClusterIdRequiredInV1
+- testNodeIdRequiredInV1
+- testV0SerializationWithAll
+- testV0SerializationWithJustClusterId
+- testV0SerializationWithJustClusterIdAndNodeId
+- testV0SerializationWithJustNodeId
+- testV0SerializationWithNothing
+- testV1SerializationWithDirectoryId
+- testV1SerializationWithNonUuidClusterId
+- testV1SerializationWithoutDirectoryId
+org.apache.kafka.metadata.properties.MetaPropertiesVersionTest:
+- testAlwaysHasClusterId
+- testAlwaysHasNodeId
+- testFromInvalidNumber
+- testFromInvalidString
+- testHasBrokerId
+- testV0FromNumber
+- testV0FromNumberString
+- testV0ToNumber
+- testV0ToNumberString
+- testV1FromNumber
+- testV1FromNumberString
+- testV1ToNumber
+- testV1ToNumberString
+org.apache.kafka.metadata.properties.PropertiesUtilsTest:
+- loadMissingRequiredIntProp
+- loadNonIntegerRequiredIntProp
+- loadRequiredIntProp
+- testReadPropertiesFile
+- testWritePropertiesFile
 org.apache.kafka.queue.KafkaEventQueueTest:
 - testCreateAndClose
 - testDeferredIsQueuedAfterTriggering
 - testHandleEvents
 - testHandleExceptionThrowingAnException
+- testIdleTimeCallback
 - testInterruptedExceptionHandling
 - testInterruptedWithDeferredEvents
 - testInterruptedWithEmptyQueue
@@ -35,6 +100,7 @@ org.apache.kafka.server.common.FeatureTest:
 - testLatestProductionIsOneOfFeatureValues
 - testUnstableTestVersion
 - testV0SupportedInEarliestMV
+- testValidateEligibleLeaderReplicasVersion
 - testValidateVersionAllFeatures
 - testValidateWithDefaultValueDependencyAheadOfItsDefaultLevel
 - testValidateWithDependencyNotProductionReady
@@ -44,11 +110,14 @@ org.apache.kafka.server.common.FeatureTest:
 - testValidateWithNonExistentLatestProduction
 org.apache.kafka.server.common.FinalizedFeaturesTest:
 - testKRaftModeFeatures
+- testSetFinalizedLevel
 org.apache.kafka.server.common.KRaftVersionTest:
 - tesVotersRecordVersion
 - testBootstrapMetadataVersion
 - testFeatureLevel
 - testFromFeatureLevel
+- testIsAtLeast
+- testIsMoreThan
 - testKraftVersionRecordVersion
 - testQuorumStateVersion
 org.apache.kafka.server.common.MetadataVersionTest:
@@ -62,6 +131,7 @@ org.apache.kafka.server.common.MetadataVersionTest:
 - testIsElrSupported
 - testListOffsetsValueVersion
 - testMetadataChanged
+- testMetadataVersionsToString
 - testPartitionChangeRecordVersion
 - testPartitionRecordVersion
 - testPrevious
@@ -69,8 +139,6 @@ org.apache.kafka.server.common.MetadataVersionTest:
 - testRegisterBrokerRecordVersion
 - testShortVersion
 - testVersion
-org.apache.kafka.server.common.MetadataVersionValidatorTest:
-- testMetadataVersionValidator
 org.apache.kafka.server.common.ProducerIdsBlockTest:
 - testClaimNextId
 - testDynamicBlock
@@ -185,11 +253,16 @@ org.apache.kafka.server.immutable.pcollections.PCollectionsImmutableSetTest:
 - testSingletonSet
 - testUnderlying
 org.apache.kafka.server.metrics.KafkaMetricsGroupTest:
-- testConstructorWithPackageAndSimpleName
+- testTaggedMetricName
+- testTaggedMetricNameWithEmptyValue
+- testUntaggedMetricName
 org.apache.kafka.server.metrics.KafkaYammerMetricsTest:
 - testTaggedMetricName
 - testTaggedMetricNameWithEmptyValue
 - testUntaggedMetric
+org.apache.kafka.server.metrics.TimeRatioTest:
+- testRatio
+- testRatioMisalignedWindow
 org.apache.kafka.server.mutable.BoundedListTest:
 - testAddAll
 - testAddingToBoundedList
@@ -233,12 +306,31 @@ org.apache.kafka.server.quota.QuotaUtilsTest:
 - testThrottleTimeThrowsExceptionIfProvidedNonRateMetric
 org.apache.kafka.server.record.BrokerCompressionTypeTest:
 - testTargetCompressionType
+org.apache.kafka.server.share.SharePartitionKeyTest:
+- testGetInstanceFromKeyWithColonInGroupId
+- testGetInstanceFromKeyWithGroupIdEndingWithColon
+- testGetInstanceFromKeyWithGroupIdStartingWithColon
+- testGetInstanceFromKeyWithMultipleColonsInGroupId
+- testGetInstanceFromSimpleKey
+- testRoundTripWithCoordinatorKey
+- testValidateKeyWithColonInGroupId
+- testValidateRejectsEmpty
+- testValidateRejectsEmptyGroupId
+- testValidateRejectsInvalidPartition
+- testValidateRejectsInvalidTopicId
+- testValidateRejectsNull
+- testValidateRejectsTooFewSegments
+- testValidateSimpleKey
 org.apache.kafka.server.share.persister.DefaultStatePersisterTest:
 - testDefaultPersisterClose
 - testDeleteStateResponseToResultFailedFuture
 - testDeleteStateResponseToResultPartialResults
 - testDeleteStateSuccess
 - testDeleteStateValidate
+- testInitializeStateResponseToResultFailedFuture
+- testInitializeStateResponseToResultPartialResults
+- testInitializeStateSuccess
+- testInitializeStateValidate
 - testReadStateResponseToResultFailedFuture
 - testReadStateResponseToResultPartialResults
 - testReadStateSuccess
@@ -252,6 +344,7 @@ org.apache.kafka.server.share.persister.DefaultStatePersisterTest:
 - testWriteStateSuccess
 - testWriteStateValidate
 org.apache.kafka.server.share.persister.PersisterStateManagerTest:
+- testDeleteStateClientResponseErrorRetriesExhausted
 - testDeleteStateRequestBatchingWithCoordinatorNodeLookup
 - testDeleteStateRequestCoordinatorFoundOnRetry
 - testDeleteStateRequestCoordinatorFoundSuccessfully
@@ -264,8 +357,16 @@ org.apache.kafka.server.share.persister.PersisterStateManagerTest:
 - testFindCoordinatorFatalError
 - testFindCoordinatorNullResponse
 - testFindCoordinatorSuccess
-- testNetworkErrorHandling
+- testInitializeStateClientResponseErrorRetriesExhausted
+- testInitializeStateRequestBatchingWithCoordinatorNodeLookup
+- testInitializeStateRequestCoordinatorFoundOnRetry
+- testInitializeStateRequestCoordinatorFoundSuccessfully
+- testInitializeStateRequestFailedMaxRetriesExhausted
+- testInitializeStateRequestRetryWithNotCoordinatorSuccessfulOnRetry
+- testInitializeStateRequestWithCoordinatorNodeLookup
+- testInitializeStateRequestWithRetryAndCoordinatorNodeLookup
 - testPersisterStateManagerClose
+- testReadStateClientResponseErrorRetriesExhausted
 - testReadStateRequestCoordinatorFoundOnRetry
 - testReadStateRequestCoordinatorFoundSuccessfully
 - testReadStateRequestFailureMaxRetriesExhausted
@@ -273,6 +374,7 @@ org.apache.kafka.server.share.persister.PersisterStateManagerTest:
 - testReadStateRequestRetryWithCoordinatorNodeLookup
 - testReadStateRequestRetryWithNotCoordinatorSuccessfulOnRetry
 - testReadStateRequestWithCoordinatorNodeLookup
+- testReadStateSummaryClientResponseErrorRetriesExhausted
 - testReadStateSummaryRequestCoordinatorFoundOnRetry
 - testReadStateSummaryRequestCoordinatorFoundSuccessfully
 - testReadStateSummaryRequestFailureMaxRetriesExhausted
@@ -280,6 +382,8 @@ org.apache.kafka.server.share.persister.PersisterStateManagerTest:
 - testReadStateSummaryRequestRetryWithCoordinatorNodeLookup
 - testReadStateSummaryRequestRetryWithNotCoordinatorSuccessfulOnRetry
 - testReadStateSummaryRequestWithCoordinatorNodeLookup
+- testResponseErrorHandling
+- testWriteStateClientResponseErrorRetriesExhausted
 - testWriteStateRequestBatchingWithCoordinatorNodeLookup
 - testWriteStateRequestCoordinatorFoundOnRetry
 - testWriteStateRequestCoordinatorFoundSuccessfully
@@ -288,6 +392,10 @@ org.apache.kafka.server.share.persister.PersisterStateManagerTest:
 - testWriteStateRequestWithCoordinatorNodeLookup
 - testWriteStateRequestWithRetryAndCoordinatorNodeLookup
 org.apache.kafka.server.util.CommandLineUtilsTest:
+- testCheckOneOfArgsMultiplePresent
+- testCheckOneOfArgsNoOptions
+- testCheckOneOfArgsNonePresent
+- testCheckOneOfArgsOnePresent
 - testInitializeBootstrapPropertiesWithBothBootstraps
 - testInitializeBootstrapPropertiesWithBrokerBootstrap
 - testInitializeBootstrapPropertiesWithControllerBootstrap
@@ -345,7 +453,6 @@ org.apache.kafka.server.util.JsonTest:
 - testJsonArrayIterator
 - testJsonObjectApply
 - testJsonObjectGet
-- testJsonObjectIterator
 - testJsonValueEquals
 - testJsonValueHashCode
 - testJsonValueToString
@@ -368,6 +475,15 @@ org.apache.kafka.server.util.timer.TimerTaskListTest:
 org.apache.kafka.server.util.timer.TimerTest:
 - testAlreadyExpiredTask
 - testTaskExpiration
+org.apache.kafka.server.util.timer.TimingWheelTest:
+- testAddCancelledTask
+- testAddExpiredTask
+- testAddTaskInCurrentBucket
+- testAddValidTask
+- testAdvanceClockToNextTick
+- testAdvanceClockWithOverflowWheel
+- testAdvanceClockWithinTick
+- testOverflowWheelCreation
 org.apache.kafka.timeline.BaseHashTableTest:
 - testEmptyTable
 - testExpansion

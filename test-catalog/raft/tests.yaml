@@ -93,6 +93,7 @@ org.apache.kafka.raft.FileQuorumStateStoreTest:
 org.apache.kafka.raft.FollowerStateTest:
 - testFetchTimeoutExpiration
 - testGrantStandardVote
+- testHasUpdatedLeader
 - testLeaderIdAndEndpoint
 - testMonotonicHighWatermark
 - testPreVoteAfterSuccessfulFetchFromLeader
@@ -105,9 +106,36 @@ org.apache.kafka.raft.KafkaNetworkChannelTest:
 - testSendToBlackedOutDestination
 - testUnsupportedVersionError
 - testWakeupClientOnSend
+org.apache.kafka.raft.KafkaRaftClientAutoJoinTest:
+- testAutoAddNewVoter
+- testAutoRemoveOldVoter
+- testObserverDoesNotAddItselfWhenAutoJoinDisabled
+- testObserverDoesNotAutoJoinWithKRaftVersion0
+- testObserverRemovesOldVoterAndAutoJoins
+- testObserversDoNotAutoJoin
+org.apache.kafka.raft.KafkaRaftClientClusterAuthTest:
+- testClusterAuthorizationFailedInBeginQuorumEpoch
+- testClusterAuthorizationFailedInEndQuorumEpoch
+- testClusterAuthorizationFailedInFetch
+- testClusterAuthorizationFailedInVote
 org.apache.kafka.raft.KafkaRaftClientDriverTest:
 - testShutdown
 - testUncaughtException
+org.apache.kafka.raft.KafkaRaftClientFetchTest:
+- testDefaultHwmDeferred
+- testFetchMaxBytesAlwaysReturnsAllBatchesForLargeMax
+- testFetchMaxBytesAlwaysReturnsAtLeastOneBatch
+- testFetchMaxBytesBatchesInvariants
+- testFetchMaxBytesWithTwoBatches
+- testHighWatermarkSentInFetchRequest
+- testInvalidMemoryRecords
+- testOutdatedHwmCompletedWhenLeaderKnowsHwm
+- testRandomRecords
+- testReplicationOfHigherPartitionLeaderEpoch
+- testSentFetchUsesQuorumMaxBytesConfiguration
+- testUnchangedHighWatermarkDeferred
+- testUnknownHwmDeferredWhenLeaderDoesNotKnowHwm
+- testUpdatedHighWatermarkCompleted
 org.apache.kafka.raft.KafkaRaftClientPreVoteTest:
 - testFollowerGrantsPreVoteIfHasNotFetchedYet
 - testHandleInvalidPreVoteRequestWithOlderEpoch
@@ -135,6 +163,7 @@ org.apache.kafka.raft.KafkaRaftClientPreVoteTest:
 - testRejectPreVoteIfRemoteLogIsNotUpToDate
 org.apache.kafka.raft.KafkaRaftClientReconfigTest:
 - testAddVoter
+- testAddVoterCompletesEarlyWithAckWhenCommittedFalse
 - testAddVoterFailsWhenLosingLeadership
 - testAddVoterInvalidClusterId
 - testAddVoterInvalidFeatureVersion
@@ -153,8 +182,14 @@ org.apache.kafka.raft.KafkaRaftClientReconfigTest:
 - testFollowerDoesNotRequestLeaderBootstrapSnapshot
 - testFollowerReadsKRaftBootstrapRecords
 - testFollowerSendsUpdateVoter
+- testFollowerSendsUpdateVoterAfterElectionWithKraftVersion0
+- testFollowerSendsUpdateVoterIfPendingFetchDuringTimeout
 - testFollowerSendsUpdateVoterWhenDifferent
+- testFollowerSendsUpdateVoterWithKraftVersion0
 - testHandleBeginQuorumRequestMoreEndpoints
+- testInvalidKRaftUpgradeVersion
+- testInvalidUpdateVoter
+- testKRaftUpgradeVersion
 - testLeaderDoesNotBootstrapRecordsWithKraftVersion0
 - testLeaderMetricsAreReset
 - testLeaderUpdatesVoter
@@ -174,6 +209,7 @@ org.apache.kafka.raft.KafkaRaftClientReconfigTest:
 - testRemoveVoterWithPendingRemoveVoter
 - testRemoveVoterWithoutFencedPreviousLeaders
 - testUpdateVoter
+- testUpdateVoterAfterKRaftVersionUpgrade
 - testUpdateVoterInvalidClusterId
 - testUpdateVoterNewEpoch
 - testUpdateVoterOldEpoch
@@ -205,6 +241,7 @@ org.apache.kafka.raft.KafkaRaftClientSnapshotTest:
 - testFetchSnapshotRequestWithInvalidPosition
 - testFetchSnapshotRequestWithNewerEpoch
 - testFetchSnapshotRequestWithOlderEpoch
+- testFetchSnapshotRequestWithPartialData
 - testFetchSnapshotResponseFromNewerEpochLeader
 - testFetchSnapshotResponseFromNewerEpochNotLeader
 - testFetchSnapshotResponseFromOlderEpoch
@@ -218,6 +255,8 @@ org.apache.kafka.raft.KafkaRaftClientSnapshotTest:
 - testLeaderImmediatelySendsSnapshotId
 - testLeaderListenerNotified
 - testLeaderShouldResignLeadershipIfNotGetFetchSnapshotRequestFromMajorityVoters
+- testListenerReceivesBootstrapSnapshot
+- testListenerReceivesBootstrapSnapshotViaFollowerFetch
 - testListenerRenotified
 - testPartialFetchSnapshotRequestAsLeader
 - testSecondListenerNotified
@@ -231,18 +270,15 @@ org.apache.kafka.raft.KafkaRaftClientTest:
 - testAppendFailedWithRecordBatchTooLargeException
 - testBeginQuorumEpochHeartbeat
 - testBeginQuorumEpochRequestClusterIdValidation
-- testCandidateBackoffElection
+- testBeginQuorumShouldNotSendAfterFetchRequest
 - testCandidateElectionTimeout
 - testCandidateIgnoreVoteRequestOnSameEpoch
+- testCandidateWaitsRestOfElectionTimeoutAfterElectionLoss
 - testCannotResignIfNotLeader
 - testCannotResignIfObserver
 - testCannotResignWithLargerEpochThanCurrentEpoch
 - testChannelWokenUpIfLingerTimeoutReachedDuringAppend
 - testChannelWokenUpIfLingerTimeoutReachedWithoutAppend
-- testClusterAuthorizationFailedInBeginQuorumEpoch
-- testClusterAuthorizationFailedInEndQuorumEpoch
-- testClusterAuthorizationFailedInFetch
-- testClusterAuthorizationFailedInVote
 - testDescribeQuorumNonLeader
 - testDescribeQuorumNonMonotonicFollowerFetch
 - testDescribeQuorumWithFollowers
@@ -323,6 +359,7 @@ org.apache.kafka.raft.KafkaRaftClientTest:
 - testMetrics
 - testNodeDirectoryId
 - testObserverFetchWithNoLocalId
+- testObserverFollowerSendFetchToBestNode
 - testObserverGracefulShutdown
 - testObserverHandleRetryFetchToBootstrapServer
 - testObserverHandleRetryFetchToLeader
@@ -330,7 +367,7 @@ org.apache.kafka.raft.KafkaRaftClientTest:
 - testObserverLeaderRediscoveryAfterRequestTimeout
 - testObserverQuorumDiscoveryFailure
 - testObserverReplication
-- testObserverSendDiscoveryFetchAfterFetchTimeout
+- testObserverUnattachedSendFetchToBootstrapServers
 - testPurgatoryFetchCompletedByFollowerTransition
 - testPurgatoryFetchSatisfiedByWrite
 - testPurgatoryFetchTimeout
@@ -346,6 +383,10 @@ org.apache.kafka.raft.KafkaRaftClientTest:
 - testVoteRequestTimeout
 - testVoteResponseIgnoredAfterBecomingFollower
 - testVoterBecomeProspectiveAfterFetchTimeout
+org.apache.kafka.raft.LeaderAndEpochTest:
+- testConstructorThrowsExceptionWhenLeaderIdIsNull
+- testConstructorWithEmptyLeaderId
+- testConstructorWithValidLeaderId
 org.apache.kafka.raft.LeaderStateTest:
 - testBeginQuorumEpochTimer
 - testCheckQuorum
@@ -357,7 +398,9 @@ org.apache.kafka.raft.LeaderStateTest:
 - testHighWatermarkDoesIncreaseFromNewVoter
 - testHighWatermarkDoesNotDecreaseFromNewVoter
 - testIdempotentEndOffsetUpdate
+- testInvalidMaybeAppendUpgradedKRaftVersion
 - testLeaderEndpoints
+- testMaybeAppendUpgradedKRaftVersion
 - testNonFollowerAcknowledgement
 - testNonMonotonicHighWatermarkUpdate
 - testNonMonotonicLocalEndOffsetUpdate
@@ -369,6 +412,7 @@ org.apache.kafka.raft.LeaderStateTest:
 - testUpdateHighWatermarkQuorumSizeTwo
 - testUpdateHighWatermarkRemovingFollowerFromVoterStates
 - testUpdateVotersFromNoDirectoryIdToDirectoryId
+- testVolatileVoters
 org.apache.kafka.raft.MockExpirationServiceTest:
 - testFailAfter
 org.apache.kafka.raft.MockLogTest:
@@ -390,11 +434,19 @@ org.apache.kafka.raft.MockLogTest:
 - testEmptyAppendNotAllowed
 - testEndOffsetForEpoch
 - testFailToIncreaseLogStartPastHighWatermark
+- testInvalidLeaderEpoch
+- testInvalidMemoryRecords
+- testLogLimitsReturnsAtLeastOne
+- testLogLimitsReturnsLessThanMaxBytes
 - testMetadataValidation
+- testMockLogReadExtremelyLargeMultiBatch
+- testMockLogReadExtremelyLargeSingleBatch
 - testMonotonicEpochStartOffset
+- testRandomRecords
 - testReadMissingSnapshot
 - testReadOutOfRangeOffset
 - testReadRecords
+- testReadRespectsMaxSizeInBytes
 - testReadUpToHighWatermark
 - testReadUpToLogEnd
 - testTopicId
@@ -436,6 +488,8 @@ org.apache.kafka.raft.ProspectiveStateTest:
 - testThreeNodeQuorumVoteRejected
 - testTwoNodeQuorumVoteGranted
 - testTwoNodeQuorumVoteRejected
+org.apache.kafka.raft.QuorumConfigTest:
+- testIllegalConfig
 org.apache.kafka.raft.QuorumStateTest:
 - testCanBecomeFollowerOfNonVoter
 - testCandidateToAnyStateLowerEpoch
@@ -543,9 +597,14 @@ org.apache.kafka.raft.RaftEventSimulationTest:
 - canMakeProgressIfMajorityIsReachable
 - canRecoverAfterAllNodesKilled
 - canRecoverFromSingleNodeCommittedDataLoss
+- leadershipAssignedOnlyOnceWithNetworkPartitionIfThereExistsMajority
+- leadershipWillNotChangeDuringNetworkPartitionIfMajorityStillReachable
 org.apache.kafka.raft.RaftUtilTest:
+- testAddRaftVoterRequestAckWhenCommittedNotIgnorable
+- testAddVoterResponse
 - testErrorResponse
 - testFetchRequestV17Compatibility
+- testRemoveVoterResponse
 - testSingletonBeginQuorumEpochRequestForAllVersion
 - testSingletonBeginQuorumEpochResponseForAllVersion
 - testSingletonDescribeQuorumRequestForAllVersion
@@ -563,7 +622,8 @@ org.apache.kafka.raft.RequestManagerTest:
 - testAnyInflightRequestWithAnyRequest
 - testBackoffAfterFailure
 - testFindReadyWithInflightRequest
-- testFindReadyWithRequestTimedout
+- testFindReadyWithRequestTimedOut
+- testHasRequestTimedOut
 - testIgnoreUnexpectedResponse
 - testRequestTimeout
 - testRequestToBootstrapList
@@ -594,11 +654,13 @@ org.apache.kafka.raft.VoterSetTest:
 - testIsOnlyVoterInStandalone
 - testIsVoterWithDirectoryId
 - testIsVoterWithoutDirectoryId
-- testNonoverlappingMajority
+- testNonOverlappingMajority
 - testOverlappingMajority
 - testRecordRoundTrip
 - testRemoveVoter
+- testSupportsVersion
 - testUpdateVoter
+- testUpdateVoterIgnoringDirectoryId
 - testVoterIds
 - testVoterNode
 - testVoterNodeIsVoterWithDirectoryId
@@ -643,6 +705,55 @@ org.apache.kafka.raft.internals.KRaftControlRecordStateMachineTest:
 - testUpdateWithSnapshot
 - testUpdateWithSnapshotAndLogOverride
 - testUpdateWithoutSnapshot
+org.apache.kafka.raft.internals.KafkaRaftLogTest:
+- testAdvanceLogStartOffsetAfterCleaning
+- testCleanupOlderSnapshots
+- testCleanupPartialSnapshots
+- testConfig
+- testCreateExistingSnapshot
+- testCreateRaftLogTruncatesFully
+- testCreateSnapshot
+- testCreateSnapshotBeforeLogStartOffset
+- testCreateSnapshotDivergingEpoch
+- testCreateSnapshotFromEndOffset
+- testCreateSnapshotInMiddleOfBatch
+- testCreateSnapshotLaterThanHighWatermark
+- testCreateSnapshotMuchLaterEpoch
+- testCreateSnapshotOlderEpoch
+- testCreateSnapshotWithMissingEpoch
+- testDeleteNonExistentSnapshot
+- testDeleteSnapshots
+- testDoesntTruncateFully
+- testEmptyAppendNotAllowed
+- testHighWatermarkOffsetMetadata
+- testInvalidLeaderEpoch
+- testInvalidMemoryRecords
+- testLogLimitsReturnsAtLeastOne
+- testLogLimitsReturnsLessThanMaxBytes
+- testMaxBatchSize
+- testRandomRecords
+- testReadMissingSnapshot
+- testReadMissingSnapshotFile
+- testReadRespectsMaxSizeInBytes
+- testSegmentMsConfigIsSetInMetadataLog
+- testSegmentsLessThanLatestSnapshot
+- testSnapshotDeletionWithInvalidSnapshotState
+- testSoftRetentionLimit
+- testStartupWithInvalidSnapshotState
+- testTopicId
+- testTruncateBelowHighWatermark
+- testTruncateFullyToLatestSnapshot
+- testTruncateWillRemoveOlderSnapshot
+- testUnexpectedAppendOffset
+- testValidateEpochGreaterThanLastKnownEpoch
+- testValidateEpochLessThanFirstEpochInLog
+- testValidateEpochLessThanOldestSnapshotEpoch
+- testValidateOffsetEqualToOldestSnapshotOffset
+- testValidateOffsetGreatThanEndOffset
+- testValidateOffsetLessThanLEO
+- testValidateOffsetLessThanOldestSnapshotOffset
+- testValidateUnknownEpochLessThanLastKnownGreaterThanOldestSnapshot
+- testValidateValidEpochAndOffset
 org.apache.kafka.raft.internals.KafkaRaftMetricsTest:
 - shouldRecordLatency
 - shouldRecordLogEnd
@@ -674,9 +785,6 @@ org.apache.kafka.raft.internals.ThresholdPurgatoryTest:
 - testExpiration
 - testExternalCompletion
 - testThresholdCompletion
-org.apache.kafka.raft.internals.TimeRatioTest:
-- testRatio
-- testRatioMisalignedWindow
 org.apache.kafka.raft.internals.TreeMapLogHistoryTest:
 - testAddAt
 - testClear

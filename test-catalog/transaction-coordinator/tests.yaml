@@ -2,6 +2,10 @@ org.apache.kafka.coordinator.transaction.ProducerIdManagerTest:
 - testConcurrentGeneratePidRequests
 - testInvalidRanges
 - testRetryBackoff
+- testRetryBackoffOnAuthException
+- testRetryBackoffOnNoResponse
+- testRetryBackoffOnVersionMismatch
+- testSanityCheckProhibitsOverlappingBlocks
 - testUnrecoverableErrors
 org.apache.kafka.coordinator.transaction.TransactionCoordinatorRecordSerdeTest:
 - testDeserialize
@@ -17,8 +21,24 @@ org.apache.kafka.coordinator.transaction.TransactionCoordinatorRecordSerdeTest:
 - testSerializeValue
 org.apache.kafka.coordinator.transaction.TransactionLogConfigTest:
 - ShouldDefineAllConfigInConfigDef
-- ShouldGetDynamicValueFromAbstractConfig
 - ShouldGetStaticValueFromClassAttribute
+org.apache.kafka.coordinator.transaction.TransactionLogTest:
+- COMPLETE_ABORT
+- COMPLETE_COMMIT
+- EMPTY
+- ONGOING
+- PREPARE_ABORT
+- PREPARE_COMMIT
+- shouldNotPersistProducerIdsAtVersion0
+- shouldReturnTxnTombstoneForNullValue
+- shouldRoundTripPreviousAndNextProducerIds
+- shouldThrowExceptionWriteInvalidTxn
+- testDeserializeFutureTransactionLogValue
+- testDeserializeHighestSupportedTransactionLogValue
+- testReadReturnsUnknownKeyVersionForInvalidKey
+- testReadReturnsUnknownValueVersionForInvalidValue
+- testSerializeTransactionLogValueToFlexibleVersion
+- testSerializeTransactionLogValueToHighestNonFlexibleVersion
 org.apache.kafka.coordinator.transaction.TransactionStateManagerConfigTest:
 - ShouldDefineAllConfigInConfigDef
 - ShouldGetStaticValueFromClassAttribute
